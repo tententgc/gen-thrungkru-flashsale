@@ -29,9 +29,9 @@ CREATE INDEX IF NOT EXISTS idx_user_locations_geom
 
 -- 3. Trigram indexes for Thai fuzzy search
 CREATE INDEX IF NOT EXISTS idx_vendors_name_trgm
-  ON public.vendors USING GIN (shop_name gin_trgm_ops);
+  ON public.vendors USING GIN ("shopName" gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_products_name_trgm
-  ON public.products USING GIN (name gin_trgm_ops);
+  ON public.products USING GIN ("name" gin_trgm_ops);
 
 -- 4. Check constraints that mirror sprintplan business rules
 ALTER TABLE public.flash_sales
