@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Countdown } from "./countdown";
 import type { FlashSale, Vendor, Product } from "@/lib/types";
 import { categoryMeta } from "@/lib/categories";
@@ -15,8 +16,6 @@ export function FlashSaleCard({
   vendor?: Vendor;
   product?: Product;
 }) {
-  // Fallback to mock lookup when a parent didn't pre-resolve — keeps the card
-  // usable in places that don't know vendor/product (search, notifications).
   const vendor = vendorProp ?? VENDORS.find((x) => x.id === sale.vendorId);
   if (!vendor) return null;
   const cat = categoryMeta(vendor.category);
@@ -28,6 +27,7 @@ export function FlashSaleCard({
   const soldRatio = firstItem.stockLimit
     ? Math.min(1, firstItem.stockSold / firstItem.stockLimit)
     : 0;
+  const heroImage = product?.imageUrl ?? vendor.coverImageUrl;
 
   return (
     <Link
@@ -40,9 +40,20 @@ export function FlashSaleCard({
           background: `linear-gradient(135deg, ${cat.color}30 0%, ${cat.color}10 100%)`,
         }}
       >
-        <div className="absolute inset-0 grid place-items-center text-6xl opacity-90">
-          {product?.imageEmoji ?? vendor.logoEmoji}
-        </div>
+        {heroImage ? (
+          <Image
+            src={heroImage}
+            alt={product?.name ?? vendor.shopName}
+            fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center text-6xl opacity-90">
+            {product?.imageEmoji ?? vendor.logoEmoji}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
         <div className="absolute left-3 top-3 flex gap-2">
           <span className="badge-flash">⚡ FLASH SALE</span>
           {off > 0 ? (

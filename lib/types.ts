@@ -31,6 +31,7 @@ export interface Vendor {
   phone: string;
   lineId?: string;
   coverImageUrl: string;
+  logoUrl?: string;
   logoEmoji: string;
   latitude: number;
   longitude: number;
@@ -51,6 +52,7 @@ export interface Product {
   name: string;
   description: string;
   imageEmoji: string;
+  imageUrl?: string;
   regularPrice: number;
   category: string;
   isAvailable: boolean;

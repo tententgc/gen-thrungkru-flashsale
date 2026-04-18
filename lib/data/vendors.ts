@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { ready } from "@/lib/env";
 import { VENDORS, vendorBySlug as mockBySlug, vendorById as mockById } from "@/lib/mock-data";
+import { VENDOR_IMAGES } from "@/lib/images";
 import type { Vendor } from "@/lib/types";
 
 function prismaVendorToView(v: any): Vendor {
+  // Fall back to curated Unsplash photo keyed by slug if DB column is empty.
+  const curated = VENDOR_IMAGES[v.slug];
   return {
     id: v.id,
     slug: v.slug,
@@ -12,7 +15,8 @@ function prismaVendorToView(v: any): Vendor {
     category: v.category,
     phone: v.phone,
     lineId: v.lineId ?? undefined,
-    coverImageUrl: v.coverImageUrl ?? "",
+    coverImageUrl: v.coverImageUrl || curated?.cover || "",
+    logoUrl: v.logoUrl || curated?.logo,
     logoEmoji: v.logoEmoji ?? "🏪",
     latitude: v.latitude,
     longitude: v.longitude,

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getVendorBySlug, listVendors } from "@/lib/data/vendors";
 import { listProductsForVendor } from "@/lib/data/products";
@@ -54,10 +55,21 @@ export default async function ShopDetailPage({
       >
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
-            <div
-              className="grid h-20 w-20 md:h-24 md:w-24 place-items-center rounded-3xl text-5xl bg-surface shadow-sm"
-            >
-              {vendor.logoEmoji}
+            <div className="relative h-20 w-20 md:h-24 md:w-24 overflow-hidden rounded-3xl bg-surface shadow-sm ring-4 ring-white">
+              {vendor.coverImageUrl ? (
+                <Image
+                  src={vendor.coverImageUrl}
+                  alt={vendor.shopName}
+                  fill
+                  sizes="96px"
+                  className="object-cover"
+                  priority
+                />
+              ) : (
+                <div className="grid h-full w-full place-items-center text-5xl">
+                  {vendor.logoEmoji}
+                </div>
+              )}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -135,10 +147,22 @@ export default async function ShopDetailPage({
             {products.map((p) => (
               <article key={p.id} className="card p-3 flex flex-col gap-2">
                 <div
-                  className="grid h-28 place-items-center rounded-xl text-5xl"
+                  className="relative h-28 overflow-hidden rounded-xl"
                   style={{ background: `${cat.color}1f` }}
                 >
-                  {p.imageEmoji}
+                  {p.imageUrl ? (
+                    <Image
+                      src={p.imageUrl}
+                      alt={p.name}
+                      fill
+                      sizes="(min-width: 1024px) 200px, 50vw"
+                      className="object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center text-5xl">
+                      {p.imageEmoji}
+                    </div>
+                  )}
                 </div>
                 <h3 className="font-semibold text-sm line-clamp-1">{p.name}</h3>
                 <p className="text-xs text-muted line-clamp-2">{p.description}</p>

@@ -6,6 +6,7 @@ import type {
   Vendor,
 } from "./types";
 import { MARKET_CENTER } from "./geo";
+import { PRODUCT_IMAGES, VENDOR_IMAGES } from "./images";
 
 // Stable pseudo-random so snapshots don't flicker between renders.
 function seeded(seed: number) {
@@ -388,6 +389,19 @@ export const FLASH_SALES: FlashSale[] = [
     items: [{ productId: "p-14", salePrice: 35, stockLimit: 80, stockSold: 40 }],
   },
 ];
+
+// Attach curated image URLs to every vendor + product.
+for (const v of VENDORS) {
+  const imgs = VENDOR_IMAGES[v.slug];
+  if (imgs) {
+    v.coverImageUrl = imgs.cover;
+    v.logoUrl = imgs.logo;
+  }
+}
+for (const p of PRODUCTS) {
+  const img = PRODUCT_IMAGES[p.id];
+  if (img) p.imageUrl = img;
+}
 
 export function vendorById(id: string): Vendor | undefined {
   return VENDORS.find((v) => v.id === id);

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getFlashSaleById, listActiveFlashSales } from "@/lib/data/flash-sales";
 import { getProductById } from "@/lib/data/products";
@@ -97,10 +98,22 @@ export default async function FlashSaleDetailPage({
               return (
                 <li key={item.productId} className="card flex gap-4 p-4">
                   <div
-                    className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl text-4xl"
+                    className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl"
                     style={{ background: `${cat.color}22` }}
                   >
-                    {product.imageEmoji}
+                    {product.imageUrl ? (
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-4xl">
+                        {product.imageEmoji}
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-baseline gap-2">

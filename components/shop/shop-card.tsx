@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Vendor } from "@/lib/types";
 import { categoryMeta } from "@/lib/categories";
 import { StarIcon, PinIcon, ClockIcon } from "@/components/icons";
@@ -30,10 +31,22 @@ export function ShopCard({
       className="card group flex gap-3 overflow-hidden p-3 hover:shadow-pop"
     >
       <div
-        className="grid h-24 w-24 shrink-0 place-items-center rounded-xl text-4xl"
+        className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl"
         style={{ background: `linear-gradient(135deg, ${cat.color}30, ${cat.color}10)` }}
       >
-        {vendor.logoEmoji}
+        {vendor.coverImageUrl ? (
+          <Image
+            src={vendor.coverImageUrl}
+            alt={vendor.shopName}
+            fill
+            sizes="96px"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center text-4xl">
+            {vendor.logoEmoji}
+          </div>
+        )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">

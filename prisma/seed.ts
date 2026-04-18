@@ -11,6 +11,7 @@ import {
   FLASH_SALES,
   DEMO_USERS,
 } from "../lib/mock-data";
+import { VENDOR_IMAGES, PRODUCT_IMAGES } from "../lib/images";
 
 const prisma = new PrismaClient();
 
@@ -65,6 +66,7 @@ async function main() {
   for (const v of VENDORS) {
     const id = uuidFromKey(`vendor:${v.id}`);
     vendorIdMap.set(v.id, id);
+    const imgs = VENDOR_IMAGES[v.slug];
     await prisma.vendor.upsert({
       where: { slug: v.slug },
       update: {
@@ -74,6 +76,8 @@ async function main() {
         phone: v.phone,
         lineId: v.lineId ?? null,
         logoEmoji: v.logoEmoji,
+        logoUrl: imgs?.logo ?? null,
+        coverImageUrl: imgs?.cover ?? null,
         latitude: v.latitude,
         longitude: v.longitude,
         boothNumber: v.boothNumber,
@@ -96,6 +100,8 @@ async function main() {
         phone: v.phone,
         lineId: v.lineId ?? null,
         logoEmoji: v.logoEmoji,
+        logoUrl: imgs?.logo ?? null,
+        coverImageUrl: imgs?.cover ?? null,
         latitude: v.latitude,
         longitude: v.longitude,
         boothNumber: v.boothNumber,
@@ -118,12 +124,14 @@ async function main() {
     productIdMap.set(p.id, id);
     const vendorId = vendorIdMap.get(p.vendorId);
     if (!vendorId) continue;
+    const imageUrl = PRODUCT_IMAGES[p.id] ?? null;
     await prisma.product.upsert({
       where: { id },
       update: {
         name: p.name,
         description: p.description,
         imageEmoji: p.imageEmoji,
+        imageUrl,
         regularPrice: p.regularPrice,
         category: p.category,
         isAvailable: p.isAvailable,
@@ -135,6 +143,7 @@ async function main() {
         name: p.name,
         description: p.description,
         imageEmoji: p.imageEmoji,
+        imageUrl,
         regularPrice: p.regularPrice,
         category: p.category,
         isAvailable: p.isAvailable,
