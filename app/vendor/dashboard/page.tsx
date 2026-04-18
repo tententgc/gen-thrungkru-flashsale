@@ -1,10 +1,9 @@
 import Link from "next/link";
-import {
-  flashSalesForVendor,
-  productsOfVendor,
-  vendorById,
-  generateWeeklyForecast,
-} from "@/lib/mock-data";
+import { getVendorById, getVendorByUserId } from "@/lib/data/vendors";
+import { listProductsForVendor } from "@/lib/data/products";
+import { listFlashSalesForVendor } from "@/lib/data/flash-sales";
+import { getForecast } from "@/lib/data/crowd";
+import { getSessionUser } from "@/lib/auth/session";
 import { FlashSaleCard } from "@/components/flash-sale/flash-sale-card";
 import { CrowdLineChart } from "@/components/crowd/crowd-line-chart";
 import { BusyBadge } from "@/components/crowd/busy-badge";
@@ -13,13 +12,19 @@ import { FlashIcon, PlusIcon, TrendingIcon } from "@/components/icons";
 
 export const metadata = { title: "ภาพรวมร้านของฉัน" };
 
-export default function VendorDashboardPage() {
-  const vendor = vendorById("v-01");
+export default async function VendorDashboardPage() {
+  const user = await getSessionUser();
+  // Real vendor when logged in; demo vendor otherwise.
+  const vendor = user
+    ? (await getVendorByUserId(user.id)) ?? (await getVendorById("v-01"))
+    : await getVendorById("v-01");
   if (!vendor) return null;
-  const products = productsOfVendor(vendor.id);
-  const sales = flashSalesForVendor(vendor.id);
+  const [products, sales, forecast] = await Promise.all([
+    listProductsForVendor(vendor.id),
+    listFlashSalesForVendor(vendor.id),
+    getForecast(48),
+  ]);
   const active = sales.filter((f) => f.status === "ACTIVE");
-  const forecast = generateWeeklyForecast();
   const peakTomorrow = Math.max(
     ...forecast.slice(24, 48).map((p) => p.count),
   );

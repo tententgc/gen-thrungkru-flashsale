@@ -1,14 +1,15 @@
-import { VENDORS } from "@/lib/mock-data";
+import { listVendors } from "@/lib/data/vendors";
 import { categoryMeta } from "@/lib/categories";
 
 export const metadata = { title: "จัดการร้านค้า" };
 
-export default function AdminVendorsPage() {
+export default async function AdminVendorsPage() {
+  const vendors = await listVendors();
   return (
     <div className="container-page py-4 md:py-8 space-y-6">
       <header>
         <h1 className="heading-hero">จัดการร้านค้า</h1>
-        <p className="text-sm text-muted">ทั้งหมด {VENDORS.length} ร้าน</p>
+        <p className="text-sm text-muted">ทั้งหมด {vendors.length} ร้าน</p>
       </header>
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
@@ -24,7 +25,7 @@ export default function AdminVendorsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {VENDORS.map((v) => {
+            {vendors.map((v) => {
               const cat = categoryMeta(v.category);
               return (
                 <tr key={v.id} className="hover:bg-primary-50/40">

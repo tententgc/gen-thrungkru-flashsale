@@ -1,26 +1,27 @@
 import Link from "next/link";
-import {
-  VENDORS,
-  activeFlashSales,
-  generateWeeklyForecast,
-  bestTimesOnDate,
-} from "@/lib/mock-data";
+import { listVendors } from "@/lib/data/vendors";
+import { listActiveFlashSales } from "@/lib/data/flash-sales";
+import { getForecast, getBestTimes } from "@/lib/data/crowd";
 import { FlashSaleCard } from "@/components/flash-sale/flash-sale-card";
 import { ShopCard } from "@/components/shop/shop-card";
-import { MarketMap } from "@/components/map/market-map";
+import { MarketMapSwitcher as MarketMap } from "@/components/map/market-map-switcher";
 import { CrowdLineChart } from "@/components/crowd/crowd-line-chart";
 import { BusyBadge } from "@/components/crowd/busy-badge";
 import { CATEGORIES } from "@/lib/categories";
 import { formatTimeTH } from "@/lib/utils";
 import { FlashIcon, ChevronIcon, TrendingIcon } from "@/components/icons";
 
-export default function HomePage() {
-  const sales = activeFlashSales().slice(0, 6);
-  const shops = VENDORS.slice(0, 6);
-  const forecast = generateWeeklyForecast();
+export default async function HomePage() {
+  const [allSales, allVendors, forecast, best] = await Promise.all([
+    listActiveFlashSales(),
+    listVendors(),
+    getForecast(48),
+    getBestTimes(new Date(), 3),
+  ]);
+  const sales = allSales.slice(0, 6);
+  const shops = allVendors.slice(0, 6);
   const next24 = forecast.slice(0, 24);
   const nowLevel = forecast[0]?.level ?? "MODERATE";
-  const best = bestTimesOnDate(forecast, new Date(), 3);
 
   return (
     <div className="container-page space-y-10 py-4 md:py-8">
@@ -48,7 +49,7 @@ export default function HomePage() {
           subtitle="หมุดแสดงตำแหน่งร้านค้า — วงแหวนกะพริบ = มี flash sale"
           href="/map"
         />
-        <MarketMap vendors={VENDORS} />
+        <MarketMap vendors={allVendors} />
       </section>
 
       {/* Categories */}

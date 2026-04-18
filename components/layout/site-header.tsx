@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { BellIcon, SparkIcon } from "@/components/icons";
 import { SearchBar } from "@/components/search-bar";
+import { UserMenu } from "@/components/auth/user-menu";
 
-export function SiteHeader() {
+export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="container-page flex items-center justify-between gap-4 py-3">
@@ -38,9 +39,7 @@ export function SiteHeader() {
               3
             </span>
           </Link>
-          <Link href="/login" className="btn-primary hidden sm:inline-flex">
-            เข้าสู่ระบบ
-          </Link>
+          <UserMenu />
         </div>
       </div>
     </header>

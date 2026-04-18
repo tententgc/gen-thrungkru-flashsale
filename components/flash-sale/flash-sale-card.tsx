@@ -1,17 +1,28 @@
 import Link from "next/link";
 import { Countdown } from "./countdown";
-import type { FlashSale } from "@/lib/types";
+import type { FlashSale, Vendor, Product } from "@/lib/types";
 import { categoryMeta } from "@/lib/categories";
 import { formatTHB, percentOff } from "@/lib/utils";
 import { VENDORS, PRODUCTS } from "@/lib/mock-data";
 import { PinIcon, StarIcon } from "@/components/icons";
 
-export function FlashSaleCard({ sale }: { sale: FlashSale }) {
-  const vendor = VENDORS.find((v) => v.id === sale.vendorId);
+export function FlashSaleCard({
+  sale,
+  vendor: vendorProp,
+  product: productProp,
+}: {
+  sale: FlashSale;
+  vendor?: Vendor;
+  product?: Product;
+}) {
+  // Fallback to mock lookup when a parent didn't pre-resolve — keeps the card
+  // usable in places that don't know vendor/product (search, notifications).
+  const vendor = vendorProp ?? VENDORS.find((x) => x.id === sale.vendorId);
   if (!vendor) return null;
   const cat = categoryMeta(vendor.category);
   const firstItem = sale.items[0];
-  const product = PRODUCTS.find((p) => p.id === firstItem.productId);
+  const product =
+    productProp ?? PRODUCTS.find((x) => x.id === firstItem.productId);
 
   const off = product ? percentOff(product.regularPrice, firstItem.salePrice) : 0;
   const soldRatio = firstItem.stockLimit
@@ -77,7 +88,9 @@ export function FlashSaleCard({ sale }: { sale: FlashSale }) {
         <div className="mt-2 flex items-center justify-between border-t border-border pt-2 text-xs">
           <div className="flex items-center gap-1 text-muted">
             <PinIcon className="h-3.5 w-3.5" />
-            <span>{vendor.boothNumber} · {vendor.shopName}</span>
+            <span>
+              {vendor.boothNumber} · {vendor.shopName}
+            </span>
           </div>
           <div className="flex items-center gap-1 text-secondary-fg">
             <StarIcon className="h-3.5 w-3.5 text-secondary" />

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { VENDORS, activeFlashSales } from "@/lib/mock-data";
+import { listVendors } from "@/lib/data/vendors";
+import { listActiveFlashSales } from "@/lib/data/flash-sales";
 import { haversineMeters, MARKET_CENTER } from "@/lib/geo";
 import type { ShopCategory } from "@/lib/types";
 
@@ -13,9 +14,13 @@ export async function GET(req: Request) {
   const lng = Number(url.searchParams.get("lng") ?? MARKET_CENTER.lng);
   const only = url.searchParams.get("only");
 
-  const liveIds = new Set(activeFlashSales().map((fs) => fs.vendorId));
+  const [vendors, active] = await Promise.all([
+    listVendors(),
+    listActiveFlashSales(),
+  ]);
+  const liveIds = new Set(active.map((fs) => fs.vendorId));
 
-  let shops = VENDORS.filter((v) =>
+  let shops = vendors.filter((v) =>
     haversineMeters({ lat, lng }, { lat: v.latitude, lng: v.longitude }) <= radius,
   );
   if (category) shops = shops.filter((v) => v.category === category);
@@ -25,10 +30,7 @@ export async function GET(req: Request) {
     data: shops.map((v) => ({
       ...v,
       hasActiveFlashSale: liveIds.has(v.id),
-      distance: haversineMeters(
-        { lat, lng },
-        { lat: v.latitude, lng: v.longitude },
-      ),
+      distance: haversineMeters({ lat, lng }, { lat: v.latitude, lng: v.longitude }),
     })),
     meta: { total: shops.length, radius, center: { lat, lng } },
   });

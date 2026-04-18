@@ -1,4 +1,5 @@
-import { FLASH_SALES, VENDORS } from "@/lib/mock-data";
+import { listFlashSales } from "@/lib/data/flash-sales";
+import { listVendors } from "@/lib/data/vendors";
 import { FlashSaleCard } from "@/components/flash-sale/flash-sale-card";
 import { categoryMeta, CATEGORIES } from "@/lib/categories";
 import Link from "next/link";
@@ -23,14 +24,15 @@ export default async function FlashSalesPage({
   const params = (await searchParams) ?? {};
   const { status = "all", category, sort = "ending-soon" } = params;
 
-  let sales = [...FLASH_SALES];
+  const [all, vendors] = await Promise.all([listFlashSales(), listVendors()]);
+  let sales = [...all];
   if (status === "active") sales = sales.filter((s) => s.status === "ACTIVE");
   if (status === "scheduled") sales = sales.filter((s) => s.status === "SCHEDULED");
   if (status === "ended") sales = sales.filter((s) => s.status === "ENDED");
 
   if (category) {
     const vendorIds = new Set(
-      VENDORS.filter((v) => v.category === category).map((v) => v.id),
+      vendors.filter((v) => v.category === category).map((v) => v.id),
     );
     sales = sales.filter((s) => vendorIds.has(s.vendorId));
   }

@@ -1,4 +1,4 @@
-import { generateWeeklyForecast, bestTimesOnDate } from "@/lib/mock-data";
+import { getForecast, getBestTimes } from "@/lib/data/crowd";
 import { CrowdHeatmap } from "@/components/crowd/crowd-heatmap";
 import { CrowdLineChart } from "@/components/crowd/crowd-line-chart";
 import { BusyBadge } from "@/components/crowd/busy-badge";
@@ -7,16 +7,14 @@ import { ChartIcon } from "@/components/icons";
 
 export const metadata = { title: "พยากรณ์ความหนาแน่น" };
 
-export default function CrowdPage() {
-  const forecast = generateWeeklyForecast();
+export default async function CrowdPage() {
+  const [forecast, bestToday, bestTomorrow] = await Promise.all([
+    getForecast(168),
+    getBestTimes(new Date(), 3),
+    getBestTimes(new Date(Date.now() + 86_400_000), 3),
+  ]);
   const next24 = forecast.slice(0, 24);
   const now = forecast[0];
-  const bestToday = bestTimesOnDate(forecast, new Date(), 3);
-  const bestTomorrow = bestTimesOnDate(
-    forecast,
-    new Date(Date.now() + 86_400_000),
-    3,
-  );
 
   return (
     <div className="container-page space-y-6 py-4 md:py-8">
@@ -117,7 +115,7 @@ function BestTimes({
 }: {
   title: string;
   date: Date;
-  points: ReturnType<typeof bestTimesOnDate>;
+  points: Awaited<ReturnType<typeof getBestTimes>>;
 }) {
   return (
     <div className="card p-5">

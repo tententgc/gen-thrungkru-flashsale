@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CATEGORIES } from "@/lib/categories";
 import { CheckIcon } from "@/components/icons";
+import { PushRegistrar } from "@/components/pwa/push-registrar";
 
 type Prefs = {
   pushAll: boolean;
@@ -42,6 +43,8 @@ export default function NotificationPrefsPage() {
           ควบคุมประเภท รัศมี และช่วงเวลาที่คุณอยากรับแจ้งเตือน
         </p>
       </header>
+
+      <PushRegistrar vapidPublic={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""} />
 
       <section className="card divide-y divide-border">
         <Toggle

@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  vendorBySlug,
-  productsOfVendor,
-  flashSalesForVendor,
-  VENDORS,
-} from "@/lib/mock-data";
+import { getVendorBySlug, listVendors } from "@/lib/data/vendors";
+import { listProductsForVendor } from "@/lib/data/products";
+import { listFlashSalesForVendor } from "@/lib/data/flash-sales";
 import { categoryMeta } from "@/lib/categories";
 import { formatTHB } from "@/lib/utils";
 import { MARKET_CENTER, haversineMeters, formatDistance } from "@/lib/geo";
@@ -20,7 +17,8 @@ import {
 import { FlashSaleCard } from "@/components/flash-sale/flash-sale-card";
 
 export async function generateStaticParams() {
-  return VENDORS.map((v) => ({ slug: v.slug }));
+  const vendors = await listVendors();
+  return vendors.map((v) => ({ slug: v.slug }));
 }
 
 export default async function ShopDetailPage({
@@ -29,11 +27,13 @@ export default async function ShopDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const vendor = vendorBySlug(slug);
+  const vendor = await getVendorBySlug(slug);
   if (!vendor) notFound();
   const cat = categoryMeta(vendor.category);
-  const products = productsOfVendor(vendor.id);
-  const sales = flashSalesForVendor(vendor.id);
+  const [products, sales] = await Promise.all([
+    listProductsForVendor(vendor.id),
+    listFlashSalesForVendor(vendor.id),
+  ]);
   const activeSales = sales.filter((f) => f.status === "ACTIVE" || f.status === "SCHEDULED");
   const distance = haversineMeters(MARKET_CENTER, {
     lat: vendor.latitude,

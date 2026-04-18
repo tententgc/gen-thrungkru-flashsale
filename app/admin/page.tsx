@@ -1,16 +1,24 @@
 import Link from "next/link";
-import { VENDORS, FLASH_SALES, generateWeeklyForecast } from "@/lib/mock-data";
+import { listVendors } from "@/lib/data/vendors";
+import { listFlashSales } from "@/lib/data/flash-sales";
+import { getForecast } from "@/lib/data/crowd";
 import { CrowdLineChart } from "@/components/crowd/crowd-line-chart";
 import { categoryMeta } from "@/lib/categories";
-import { CheckIcon, ChartIcon } from "@/components/icons";
+import { ChartIcon } from "@/components/icons";
+import { VendorApproveButton } from "@/components/admin/vendor-actions";
+import type { ShopCategory } from "@/lib/types";
 
 export const metadata = { title: "Admin Dashboard" };
 
-export default function AdminPage() {
-  const pendingVendors = VENDORS.filter((v) => !v.isVerified);
-  const forecast = generateWeeklyForecast();
-  const totalReviews = VENDORS.reduce((acc, v) => acc + v.reviewCount, 0);
-  const activeFlashCount = FLASH_SALES.filter((f) => f.status === "ACTIVE").length;
+export default async function AdminPage() {
+  const [vendors, flashSales, forecast] = await Promise.all([
+    listVendors(),
+    listFlashSales(),
+    getForecast(48),
+  ]);
+  const pendingVendors = vendors.filter((v) => !v.isVerified);
+  const totalReviews = vendors.reduce((acc, v) => acc + v.reviewCount, 0);
+  const activeFlashCount = flashSales.filter((f) => f.status === "ACTIVE").length;
 
   return (
     <div className="container-page py-4 md:py-8 space-y-6">
@@ -27,7 +35,7 @@ export default function AdminPage() {
 
       <section className="grid gap-4 md:grid-cols-4">
         <Kpi title="Monthly Active Users" value="2,487" trend="+14% WoW" />
-        <Kpi title="Vendors" value={VENDORS.length.toString()} trend={`${pendingVendors.length} รอตรวจ`} />
+        <Kpi title="Vendors" value={vendors.length.toString()} trend={`${pendingVendors.length} รอตรวจ`} />
         <Kpi title="Flash Sales ตอนนี้" value={activeFlashCount.toString()} trend="ตลอด 24 ชม." />
         <Kpi title="Reviews" value={totalReviews.toString()} trend="+132 สัปดาห์นี้" />
       </section>
@@ -74,9 +82,7 @@ export default function AdminPage() {
                       {cat.label} · {v.boothNumber} · {v.phone}
                     </div>
                   </div>
-                  <button className="btn-primary text-xs">
-                    <CheckIcon className="h-3 w-3" /> อนุมัติ
-                  </button>
+                  <VendorApproveButton vendorId={v.id} isVerified={v.isVerified} />
                   <button className="btn-outline text-xs">ปฏิเสธ</button>
                 </li>
               );
@@ -89,7 +95,7 @@ export default function AdminPage() {
         <div className="card p-5 space-y-3">
           <h3 className="font-semibold">Top หมวดหมู่ (ตามผู้ติดตาม)</h3>
           <ul className="text-sm space-y-2">
-            {aggregateByCategory().map((row) => (
+            {aggregateByCategory(vendors).map((row) => (
               <li key={row.category} className="flex items-center justify-between">
                 <span className="chip">
                   {row.emoji} {row.label}
@@ -144,14 +150,16 @@ function HealthRow({ label, value, ok }: { label: string; value: string; ok?: bo
   );
 }
 
-function aggregateByCategory() {
+function aggregateByCategory(
+  vendors: Awaited<ReturnType<typeof listVendors>>,
+) {
   const map = new Map<string, number>();
-  for (const v of VENDORS) {
+  for (const v of vendors) {
     map.set(v.category, (map.get(v.category) ?? 0) + v.followerCount);
   }
   return [...map.entries()]
     .map(([k, followers]) => {
-      const meta = categoryMeta(k as (typeof VENDORS)[number]["category"]);
+      const meta = categoryMeta(k as ShopCategory);
       return { category: k, label: meta.label, emoji: meta.emoji, followers };
     })
     .sort((a, b) => b.followers - a.followers)

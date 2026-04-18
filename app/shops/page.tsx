@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { VENDORS, activeFlashSales } from "@/lib/mock-data";
+import { listVendors } from "@/lib/data/vendors";
+import { listActiveFlashSales } from "@/lib/data/flash-sales";
 import { ShopCard } from "@/components/shop/shop-card";
 import { CATEGORIES } from "@/lib/categories";
 import { FilterIcon } from "@/components/icons";
@@ -13,10 +14,11 @@ export default async function ShopsPage({
 }) {
   const { category, sort = "popular", only } = (await searchParams) ?? {};
 
-  let shops = [...VENDORS];
+  const [vendors, active] = await Promise.all([listVendors(), listActiveFlashSales()]);
+  let shops = [...vendors];
   if (category) shops = shops.filter((v) => v.category === category);
   if (only === "flash-sale") {
-    const liveIds = new Set(activeFlashSales().map((fs) => fs.vendorId));
+    const liveIds = new Set(active.map((fs) => fs.vendorId));
     shops = shops.filter((v) => liveIds.has(v.id));
   }
   if (sort === "popular") shops.sort((a, b) => b.followerCount - a.followerCount);
@@ -27,7 +29,7 @@ export default async function ShopsPage({
       <header>
         <h1 className="heading-hero">ร้านค้าในตลาด</h1>
         <p className="text-sm text-muted">
-          {VENDORS.length} ร้าน · คัดสรรโดยทีมตลาดทุ่งครุ 61
+          {vendors.length} ร้าน · คัดสรรโดยทีมตลาดทุ่งครุ 61
         </p>
       </header>
 

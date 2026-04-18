@@ -1,10 +1,14 @@
-import { vendorById } from "@/lib/mock-data";
+import { getVendorById, getVendorByUserId } from "@/lib/data/vendors";
+import { getSessionUser } from "@/lib/auth/session";
 import { categoryMeta } from "@/lib/categories";
 
 export const metadata = { title: "ข้อมูลร้าน" };
 
-export default function VendorProfilePage() {
-  const vendor = vendorById("v-01");
+export default async function VendorProfilePage() {
+  const user = await getSessionUser();
+  const vendor = user
+    ? (await getVendorByUserId(user.id)) ?? (await getVendorById("v-01"))
+    : await getVendorById("v-01");
   if (!vendor) return null;
   const cat = categoryMeta(vendor.category);
 

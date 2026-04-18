@@ -1,12 +1,12 @@
-import { generateWeeklyForecast } from "@/lib/mock-data";
+import { getForecast } from "@/lib/data/crowd";
 import { CrowdHeatmap } from "@/components/crowd/crowd-heatmap";
 import { CrowdLineChart } from "@/components/crowd/crowd-line-chart";
 import { TrendingIcon } from "@/components/icons";
 
 export const metadata = { title: "Insights สำหรับร้านค้า" };
 
-export default function VendorInsightsPage() {
-  const forecast = generateWeeklyForecast();
+export default async function VendorInsightsPage() {
+  const forecast = await getForecast(168);
   const peakToday = Math.max(...forecast.slice(0, 24).map((p) => p.count));
   const avgToday = Math.round(
     forecast.slice(0, 24).reduce((acc, p) => acc + p.count, 0) / 24,

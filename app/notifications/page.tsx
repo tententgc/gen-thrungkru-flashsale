@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { activeFlashSales, vendorById } from "@/lib/mock-data";
+import { listActiveFlashSales } from "@/lib/data/flash-sales";
+import { getVendorById } from "@/lib/data/vendors";
 import { BellIcon, FlashIcon, CrowdIcon, ChevronIcon } from "@/components/icons";
 import { formatTimeTH } from "@/lib/utils";
 
@@ -15,20 +16,22 @@ type Notification = {
   read: boolean;
 };
 
-function buildNotifications(): Notification[] {
-  const sales = activeFlashSales().slice(0, 3);
-  const base: Notification[] = sales.map((s, i) => {
-    const vendor = vendorById(s.vendorId);
-    return {
-      id: `n-fs-${s.id}`,
-      type: "flash_sale",
-      title: `⚡ ${vendor?.shopName ?? "ร้าน"} ปล่อย Flash Sale!`,
-      body: s.title,
-      sentAt: new Date(Date.now() - i * 900_000).toISOString(),
-      href: `/flash-sales/${s.id}`,
-      read: i > 1,
-    };
-  });
+async function buildNotifications(): Promise<Notification[]> {
+  const sales = (await listActiveFlashSales()).slice(0, 3);
+  const base: Notification[] = await Promise.all(
+    sales.map(async (s, i) => {
+      const vendor = await getVendorById(s.vendorId);
+      return {
+        id: `n-fs-${s.id}`,
+        type: "flash_sale",
+        title: `⚡ ${vendor?.shopName ?? "ร้าน"} ปล่อย Flash Sale!`,
+        body: s.title,
+        sentAt: new Date(Date.now() - i * 900_000).toISOString(),
+        href: `/flash-sales/${s.id}`,
+        read: i > 1,
+      };
+    }),
+  );
   return [
     ...base,
     {
@@ -52,8 +55,8 @@ function buildNotifications(): Notification[] {
   ];
 }
 
-export default function NotificationsPage() {
-  const notifications = buildNotifications();
+export default async function NotificationsPage() {
+  const notifications = await buildNotifications();
   const unread = notifications.filter((n) => !n.read).length;
 
   return (

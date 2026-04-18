@@ -1,0 +1,419 @@
+// ThungKhru61 Prisma schema
+// Mirrors the Database Schema section of sprintplan.md.
+// PostGIS + TimescaleDB extensions are enabled via raw SQL migrations
+// (see prisma/migrations/*_extensions/migration.sql).
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "multiSchema"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [postgis, pg_trgm, pgcrypto]
+  schemas    = ["public"]
+}
+
+// ── Users & Auth ──────────────────────────────────────────────────────────
+
+model User {
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String?        @unique
+  phone        String?        @unique
+  displayName  String
+  avatarUrl    String?
+  role         UserRole       @default(CUSTOMER)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  vendor       Vendor?
+  favorites    Favorite[]
+  follows      Follow[]
+  reviews      Review[]
+  location     UserLocation?
+  deviceTokens DeviceToken[]
+  checkins     CheckIn[]
+  notifications NotificationLog[]
+
+  @@map("users")
+  @@schema("public")
+}
+
+enum UserRole {
+  CUSTOMER
+  VENDOR
+  ADMIN
+
+  @@schema("public")
+}
+
+// ── Vendors ───────────────────────────────────────────────────────────────
+
+model Vendor {
+  id            String       @id @default(uuid()) @db.Uuid
+  userId        String       @unique @db.Uuid
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopName      String
+  slug          String       @unique
+  description   String?
+  category      ShopCategory
+  phone         String
+  lineId        String?
+  coverImageUrl String?
+  logoUrl       String?
+  logoEmoji     String       @default("🏪")
+
+  latitude      Float
+  longitude     Float
+  boothNumber   String?
+  address       String?
+
+  openTime      String?
+  closeTime     String?
+  openDays      String[]
+
+  isActive      Boolean      @default(true)
+  isVerified    Boolean      @default(false)
+  rating        Float        @default(0)
+  reviewCount   Int          @default(0)
+  followerCount Int          @default(0)
+
+  products      Product[]
+  flashSales    FlashSale[]
+  followers     Follow[]
+  reviews       Review[]
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([latitude, longitude])
+  @@index([category])
+  @@map("vendors")
+  @@schema("public")
+}
+
+enum ShopCategory {
+  FOOD_STREET
+  FOOD_MAIN
+  DRINKS
+  DESSERTS
+  FRUITS
+  CLOTHES
+  ACCESSORIES
+  COSMETICS
+  GROCERIES
+  OTHER
+
+  @@schema("public")
+}
+
+// ── Products ──────────────────────────────────────────────────────────────
+
+model Product {
+  id           String          @id @default(uuid()) @db.Uuid
+  vendorId     String          @db.Uuid
+  vendor       Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  imageUrl     String?
+  imageEmoji   String          @default("🍴")
+  regularPrice Decimal         @db.Decimal(10, 2)
+  category     String?
+  isAvailable  Boolean         @default(true)
+  tags         String[]
+
+  flashSaleItems FlashSaleItem[]
+  favorites    Favorite[]
+  reviews      Review[]
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([vendorId])
+  @@map("products")
+  @@schema("public")
+}
+
+// ── Flash Sales ───────────────────────────────────────────────────────────
+
+model FlashSale {
+  id              String          @id @default(uuid()) @db.Uuid
+  vendorId        String          @db.Uuid
+  vendor          Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  startAt         DateTime
+  endAt           DateTime
+  status          FlashSaleStatus @default(SCHEDULED)
+
+  items           FlashSaleItem[]
+  notifiedUserIds String[]        @default([])
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([status, startAt, endAt])
+  @@map("flash_sales")
+  @@schema("public")
+}
+
+enum FlashSaleStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+
+  @@schema("public")
+}
+
+model FlashSaleItem {
+  id          String    @id @default(uuid()) @db.Uuid
+  flashSaleId String    @db.Uuid
+  flashSale   FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+  productId   String    @db.Uuid
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  salePrice   Decimal   @db.Decimal(10, 2)
+  stockLimit  Int?
+  stockSold   Int       @default(0)
+
+  @@unique([flashSaleId, productId])
+  @@map("flash_sale_items")
+  @@schema("public")
+}
+
+// ── Social ────────────────────────────────────────────────────────────────
+
+model Follow {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String   @db.Uuid
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, vendorId])
+  @@map("follows")
+  @@schema("public")
+}
+
+model Favorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String   @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("favorites")
+  @@schema("public")
+}
+
+model Review {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String?  @db.Uuid
+  vendor    Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  productId String?  @db.Uuid
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  imageUrls String[]
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+  @@index([productId])
+  @@map("reviews")
+  @@schema("public")
+}
+
+// ── Location & Push ───────────────────────────────────────────────────────
+
+model UserLocation {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude  Float
+  longitude Float
+  accuracy  Float?
+  isOptedIn Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@index([latitude, longitude])
+  @@map("user_locations")
+  @@schema("public")
+}
+
+model DeviceToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String   @unique
+  p256dh     String
+  authKey    String
+  platform   String   @default("web")
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("device_tokens")
+  @@schema("public")
+}
+
+model NotificationLog {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String
+  title      String
+  body       String
+  payload    Json?
+  sentAt     DateTime  @default(now())
+  readAt     DateTime?
+  clickedAt  DateTime?
+
+  @@index([userId, sentAt])
+  @@map("notification_logs")
+  @@schema("public")
+}
+
+// ── Crowd Forecasting ─────────────────────────────────────────────────────
+
+model CrowdDataPoint {
+  id           String       @id @default(uuid()) @db.Uuid
+  timestamp    DateTime     @default(now())
+  source       CrowdSource
+  signalWeight Float        @default(1.0)
+  latitude     Float?
+  longitude    Float?
+  distanceM    Float?
+  inMarket     Boolean      @default(false)
+  userId       String?      @db.Uuid
+  vendorId     String?      @db.Uuid
+  metadata     Json?
+
+  @@index([timestamp])
+  @@index([inMarket, timestamp])
+  @@map("crowd_data_points")
+  @@schema("public")
+}
+
+enum CrowdSource {
+  APP_OPEN_NEARBY
+  GEOFENCE_ENTER
+  GEOFENCE_EXIT
+  QR_CHECKIN
+  VENDOR_REPORT_BUSY
+  VENDOR_REPORT_QUIET
+  FLASH_SALE_VIEW
+  MANUAL_ESTIMATE
+
+  @@schema("public")
+}
+
+model CrowdHourlySnapshot {
+  id                String   @id @default(uuid()) @db.Uuid
+  bucketStart       DateTime @unique
+  estimatedCount    Int
+  rawSignalCount    Int
+  uniqueUsers       Int
+  dayOfWeek         Int
+  hourOfDay         Int
+  isHoliday         Boolean  @default(false)
+  isRaining         Boolean  @default(false)
+  temperatureC      Float?
+  activeFlashSales  Int      @default(0)
+  activeVendors     Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  @@index([dayOfWeek, hourOfDay])
+  @@map("crowd_hourly_snapshots")
+  @@schema("public")
+}
+
+model CrowdForecast {
+  id              String    @id @default(uuid()) @db.Uuid
+  targetTime      DateTime
+  predictedCount  Int
+  confidenceLower Int
+  confidenceUpper Int
+  busyLevel       BusyLevel
+  modelVersion    String
+  generatedAt     DateTime  @default(now())
+
+  @@unique([targetTime, modelVersion])
+  @@index([targetTime])
+  @@map("crowd_forecasts")
+  @@schema("public")
+}
+
+enum BusyLevel {
+  VERY_QUIET
+  QUIET
+  MODERATE
+  BUSY
+  VERY_BUSY
+  PEAK
+
+  @@schema("public")
+}
+
+model CheckIn {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @db.Uuid
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  checkpointId String
+  timestamp    DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([checkpointId, timestamp])
+  @@map("checkins")
+  @@schema("public")
+}
+
+model WeatherSnapshot {
+  id           String   @id @default(uuid()) @db.Uuid
+  timestamp    DateTime @unique
+  temperatureC Float
+  humidity     Float
+  rainMm       Float    @default(0)
+  condition    String
+  windKph      Float?
+
+  @@index([timestamp])
+  @@map("weather_snapshots")
+  @@schema("public")
+}
+
+model ForecastModel {
+  id          String   @id @default(uuid()) @db.Uuid
+  version     String   @unique
+  algorithm   String
+  mae         Float
+  mape        Float
+  rmse        Float
+  trainedAt   DateTime @default(now())
+  isActive    Boolean  @default(false)
+  hyperparams Json?
+  featureList String[]
+  notes       String?
+
+  @@map("forecast_models")
+  @@schema("public")
+}
+
+model MarketEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventDate   DateTime @db.Date
+  title       String
+  note        String?
+  tag         String
+  createdAt   DateTime @default(now())
+
+  @@index([eventDate])
+  @@map("market_events")
+  @@schema("public")
+}

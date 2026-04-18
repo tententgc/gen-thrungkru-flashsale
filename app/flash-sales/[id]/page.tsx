@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  flashSaleById,
-  productById,
-  vendorById,
-  activeFlashSales,
-} from "@/lib/mock-data";
+import { getFlashSaleById, listActiveFlashSales } from "@/lib/data/flash-sales";
+import { getProductById } from "@/lib/data/products";
+import { getVendorById } from "@/lib/data/vendors";
 import { Countdown } from "@/components/flash-sale/countdown";
 import { formatTHB, percentOff, formatTimeTH, formatDateTH } from "@/lib/utils";
 import { categoryMeta } from "@/lib/categories";
@@ -18,12 +15,19 @@ export default async function FlashSaleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const sale = flashSaleById(id);
+  const sale = await getFlashSaleById(id);
   if (!sale) notFound();
-  const vendor = vendorById(sale.vendorId);
+  const vendor = await getVendorById(sale.vendorId);
   if (!vendor) notFound();
   const cat = categoryMeta(vendor.category);
-  const others = activeFlashSales().filter((f) => f.id !== sale.id).slice(0, 3);
+  const others = (await listActiveFlashSales())
+    .filter((f) => f.id !== sale.id)
+    .slice(0, 3);
+  const productMap = new Map(
+    (await Promise.all(sale.items.map((it) => getProductById(it.productId))))
+      .filter((p): p is NonNullable<typeof p> => p !== null)
+      .map((p) => [p.id, p]),
+  );
 
   return (
     <div className="container-page py-4 md:py-8 space-y-6">
@@ -84,7 +88,7 @@ export default async function FlashSaleDetailPage({
           <h2 className="heading-section">สินค้าในโปรโมชั่น</h2>
           <ul className="space-y-3">
             {sale.items.map((item) => {
-              const product = productById(item.productId);
+              const product = productMap.get(item.productId);
               if (!product) return null;
               const off = percentOff(product.regularPrice, item.salePrice);
               const soldRatio = item.stockLimit

@@ -3,14 +3,16 @@ import type { Vendor } from "@/lib/types";
 import { categoryMeta } from "@/lib/categories";
 import { StarIcon, PinIcon, ClockIcon } from "@/components/icons";
 import { haversineMeters, formatDistance, MARKET_CENTER } from "@/lib/geo";
-import { activeFlashSales } from "@/lib/mock-data";
+import { activeFlashSales as mockActiveFlashSales } from "@/lib/mock-data";
 
 export function ShopCard({
   vendor,
   userLocation,
+  liveSaleVendorIds,
 }: {
   vendor: Vendor;
   userLocation?: { lat: number; lng: number };
+  liveSaleVendorIds?: Set<string>;
 }) {
   const cat = categoryMeta(vendor.category);
   const from = userLocation ?? MARKET_CENTER;
@@ -18,7 +20,9 @@ export function ShopCard({
     lat: vendor.latitude,
     lng: vendor.longitude,
   });
-  const hasLiveSale = activeFlashSales().some((fs) => fs.vendorId === vendor.id);
+  const hasLiveSale = liveSaleVendorIds
+    ? liveSaleVendorIds.has(vendor.id)
+    : mockActiveFlashSales().some((fs) => fs.vendorId === vendor.id);
 
   return (
     <Link

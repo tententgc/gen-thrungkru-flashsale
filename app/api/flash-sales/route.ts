@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { FLASH_SALES, VENDORS, productById } from "@/lib/mock-data";
+import { listFlashSales } from "@/lib/data/flash-sales";
+import { listVendors } from "@/lib/data/vendors";
+import { getProductById } from "@/lib/data/products";
 import { haversineMeters, MARKET_CENTER } from "@/lib/geo";
+import type { FlashSale } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const status = url.searchParams.get("status");
+  const statusParam = url.searchParams.get("status");
   const near = url.searchParams.get("near");
   const radius = Number(url.searchParams.get("radius") ?? 2000);
 
@@ -16,12 +19,17 @@ export async function GET(req: Request) {
     if (Number.isFinite(lat) && Number.isFinite(lng)) origin = { lat, lng };
   }
 
-  let sales = [...FLASH_SALES];
-  if (status) sales = sales.filter((s) => s.status === status.toUpperCase());
+  const status = statusParam
+    ? (statusParam.toUpperCase() as FlashSale["status"])
+    : undefined;
+  const [sales, vendors] = await Promise.all([
+    listFlashSales({ status }),
+    listVendors(),
+  ]);
 
-  const enriched = sales
-    .map((s) => {
-      const vendor = VENDORS.find((v) => v.id === s.vendorId);
+  const enriched = await Promise.all(
+    sales.map(async (s) => {
+      const vendor = vendors.find((v) => v.id === s.vendorId);
       if (!vendor) return null;
       const distance = haversineMeters(origin, {
         lat: vendor.latitude,
@@ -39,14 +47,20 @@ export async function GET(req: Request) {
           category: vendor.category,
         },
         distance,
-        items: s.items.map((it) => ({ ...it, product: productById(it.productId) })),
+        items: await Promise.all(
+          s.items.map(async (it) => ({
+            ...it,
+            product: await getProductById(it.productId),
+          })),
+        ),
       };
-    })
-    .filter(
-      (s): s is NonNullable<typeof s> =>
-        s !== null && (near ? s.distance <= radius : true),
-    )
+    }),
+  );
+
+  const filtered = enriched
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .filter((s) => (near ? s.distance <= radius : true))
     .sort((a, b) => new Date(a.endAt).getTime() - new Date(b.endAt).getTime());
 
-  return NextResponse.json({ data: enriched, meta: { total: enriched.length } });
+  return NextResponse.json({ data: filtered, meta: { total: filtered.length } });
 }

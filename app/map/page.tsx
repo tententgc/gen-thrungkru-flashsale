@@ -1,12 +1,14 @@
-import { VENDORS, activeFlashSales } from "@/lib/mock-data";
-import { MarketMap } from "@/components/map/market-map";
+import { listVendors } from "@/lib/data/vendors";
+import { listActiveFlashSales } from "@/lib/data/flash-sales";
+import { MarketMapSwitcher as MarketMap } from "@/components/map/market-map-switcher";
 import { ShopCard } from "@/components/shop/shop-card";
 
 export const metadata = { title: "แผนที่ตลาด" };
 
-export default function MapPage() {
-  const liveIds = new Set(activeFlashSales().map((fs) => fs.vendorId));
-  const flashFirst = [...VENDORS].sort(
+export default async function MapPage() {
+  const [vendors, active] = await Promise.all([listVendors(), listActiveFlashSales()]);
+  const liveIds = new Set(active.map((fs) => fs.vendorId));
+  const flashFirst = [...vendors].sort(
     (a, b) => Number(liveIds.has(b.id)) - Number(liveIds.has(a.id)),
   );
 
@@ -19,10 +21,10 @@ export default function MapPage() {
         </p>
       </header>
 
-      <MarketMap vendors={VENDORS} height={560} />
+      <MarketMap vendors={vendors} height={560} />
 
       <section className="space-y-3">
-        <h2 className="heading-section">ร้านในแผนที่ ({VENDORS.length} ร้าน)</h2>
+        <h2 className="heading-section">ร้านในแผนที่ ({vendors.length} ร้าน)</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {flashFirst.map((v) => (
             <ShopCard key={v.id} vendor={v} />
