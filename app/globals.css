@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: #faf7f2;
+  color: #1f1912;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-plex-thai), var(--font-inter), system-ui, sans-serif;
+}
+
+@layer base {
+  a {
+    @apply transition-colors;
+  }
+  button,
+  [role="button"] {
+    @apply transition-all;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-400 ring-offset-2 ring-offset-background rounded-md;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8;
+  }
+  .card {
+    @apply bg-surface border border-border rounded-2xl shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-primary text-primary-fg hover:bg-primary-600 shadow-pop;
+  }
+  .btn-secondary {
+    @apply btn bg-secondary text-secondary-fg hover:brightness-95;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink hover:bg-primary-50;
+  }
+  .btn-outline {
+    @apply btn border border-border text-ink hover:bg-primary-50;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-ink hover:bg-primary-50;
+  }
+  .chip-active {
+    @apply border-primary bg-primary text-primary-fg hover:bg-primary-600;
+  }
+  .badge-flash {
+    @apply inline-flex items-center gap-1 rounded-full bg-flash px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white;
+  }
+  .heading-hero {
+    @apply text-3xl sm:text-4xl font-bold tracking-tight text-ink;
+  }
+  .heading-section {
+    @apply text-xl sm:text-2xl font-bold text-ink;
+  }
+  .skeleton {
+    @apply animate-shimmer rounded-xl;
+    background: linear-gradient(90deg, #f1ece3 0%, #f8f4ec 50%, #f1ece3 100%);
+    background-size: 800px 100%;
+  }
+}
+
+/* hide scrollbar for chip rows */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

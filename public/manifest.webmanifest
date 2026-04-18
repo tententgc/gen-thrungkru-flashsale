@@ -1,0 +1,19 @@
+{
+  "name": "ตลาดทุ่งครุ 61",
+  "short_name": "ThungKhru61",
+  "description": "แพลตฟอร์มตลาดทุ่งครุ 61 — flash sale + แผนที่ + พยากรณ์คนในตลาด",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF7F2",
+  "theme_color": "#C84B31",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
