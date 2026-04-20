@@ -126,13 +126,13 @@ export async function createUploadUrl(input: z.infer<typeof uploadSchema>) {
   const path = `${user.id}/${parsed.data.kind}/${Date.now()}.${ext}`;
   const { data, error } = await supabase.storage
     .from("shop-media")
-    .createSignedUploadUrl(path, 3600); // URL valid for 1 hour
+    .createSignedUploadUrl(path, { upsert: true });
 
   if (error) return { ok: false as const, error: error.message };
   return {
     ok: true as const,
-    path: data.signedUrl, // Use the signedUrl directly
-    token: "", // Not needed for signed URLs
+    path: data.signedUrl,
+    token: data.token,
     publicUrl: supabase.storage.from("shop-media").getPublicUrl(path).data.publicUrl,
   };
 }
