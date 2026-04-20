@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChartIcon, FlashIcon, UserIcon, HomeIcon, PinIcon } from "@/components/icons";
 import { getSessionUser } from "@/lib/auth/session";
 import { getVendorByUserId } from "@/lib/data/vendors";
@@ -19,16 +20,17 @@ export default async function VendorLayout({
   children: React.ReactNode;
 }) {
   const user = await getSessionUser();
+  if (!user) redirect("/login?next=/vendor/dashboard");
+  if (user.role === "CUSTOMER") redirect("/?denied=vendor");
+
   let shopName = "ร้านของฉัน";
   let boothNumber = "";
-  if (user) {
-    const vendor = ready.db ? await getVendorByUserId(user.id) : VENDORS[0];
-    if (vendor) {
-      shopName = vendor.shopName;
-      boothNumber = vendor.boothNumber;
-    } else {
-      shopName = user.displayName;
-    }
+  const vendor = ready.db ? await getVendorByUserId(user.id) : VENDORS[0];
+  if (vendor) {
+    shopName = vendor.shopName;
+    boothNumber = vendor.boothNumber;
+  } else {
+    shopName = user.displayName;
   }
   const subtitle = boothNumber ? `${shopName} · ${boothNumber}` : shopName;
 

@@ -32,6 +32,9 @@ export async function SiteHeader() {
           {session && (session.role === "VENDOR" || session.role === "ADMIN") && (
             <Link href="/vendor/dashboard" className="btn-ghost">สำหรับร้าน</Link>
           )}
+          {session?.role === "ADMIN" && (
+            <Link href="/admin" className="btn-ghost text-accent font-semibold">Admin</Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
