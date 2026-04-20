@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { Vendor } from "@/lib/types";
+import type { Vendor, ShopCategory } from "@/lib/types";
 import { categoryMeta } from "@/lib/categories";
 import { MARKET_CENTER, haversineMeters, formatDistance } from "@/lib/geo";
 import { PinIcon, StarIcon } from "@/components/icons";
@@ -10,25 +10,90 @@ import { PinIcon, StarIcon } from "@/components/icons";
 /**
  * Lightweight SVG-based market map.
  * - No external tile provider (demo uses stylized market bounds).
- * - Vendors are projected onto a 600x480 canvas using an equirectangular approx.
+ * - Markers are placed inside the labeled zone band that matches their category,
+ *   spread horizontally so they don't overlap. (Real lat/lng is mock-jittered
+ *   around MARKET_CENTER, so projecting it produces a useless pile in the middle.)
  * - Markers clickable → popup with shop metadata.
- *
- * The real Sprint 4 impl will swap this for Mapbox GL JS + custom style,
- * but the data contract + marker behavior lines up 1:1.
  */
 
 const W = 600;
-const H = 480;
-const METERS_PER_DEG_LAT = 111_000;
+const H = 520;
 
-function project(v: { lat: number; lng: number }, zoomMeters = 600) {
-  const metersPerDegLng = 111_000 * Math.cos((MARKET_CENTER.lat * Math.PI) / 180);
-  const dx = (v.lng - MARKET_CENTER.lng) * metersPerDegLng;
-  const dy = (v.lat - MARKET_CENTER.lat) * METERS_PER_DEG_LAT;
-  const x = W / 2 + (dx / zoomMeters) * (W / 2);
-  // SVG y axis is inverted relative to geo
-  const y = H / 2 - (dy / zoomMeters) * (H / 2);
-  return { x, y };
+const PAD_X = 40;
+const BAND_TOP = 70;
+const BAND_GAP = 24;
+const HEADER_H = 28;
+const ROW_H = 56;
+const MARKER_R = 14;
+const MARKER_PITCH = 56;
+
+type ZoneKey = "A" | "B" | "C";
+
+const ZONES: { key: ZoneKey; label: string }[] = [
+  { key: "A", label: "โซน A · อาหาร" },
+  { key: "B", label: "โซน B · เครื่องดื่ม / ของหวาน" },
+  { key: "C", label: "โซน C/D/E · ทั่วไป" },
+];
+
+const CATEGORY_TO_ZONE: Record<ShopCategory, ZoneKey> = {
+  FOOD_MAIN: "A",
+  FOOD_STREET: "A",
+  FRUITS: "A",
+  DRINKS: "B",
+  DESSERTS: "B",
+  CLOTHES: "C",
+  ACCESSORIES: "C",
+  COSMETICS: "C",
+  GROCERIES: "C",
+  OTHER: "C",
+};
+
+type Placed = {
+  x: number;
+  y: number;
+  bandTop: number;
+  bandHeight: number;
+};
+
+type Layout = {
+  positions: Map<string, Placed>;
+  bands: { key: ZoneKey; label: string; y: number; height: number; count: number }[];
+  totalHeight: number;
+};
+
+function layoutVendors(vendors: Vendor[]): Layout {
+  const byZone: Record<ZoneKey, Vendor[]> = { A: [], B: [], C: [] };
+  for (const v of vendors) byZone[CATEGORY_TO_ZONE[v.category] ?? "C"].push(v);
+
+  const innerW = W - PAD_X * 2 - 24;
+  const perRow = Math.max(1, Math.floor(innerW / MARKER_PITCH));
+
+  const positions = new Map<string, Placed>();
+  const bands: Layout["bands"] = [];
+  let cursor = BAND_TOP;
+
+  for (const { key, label } of ZONES) {
+    const list = byZone[key];
+    const rows = Math.max(1, Math.ceil(list.length / perRow));
+    const bandHeight = HEADER_H + rows * ROW_H;
+    const bandTop = cursor;
+
+    list.forEach((v, i) => {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const inThisRow = Math.min(perRow, list.length - row * perRow);
+      const span = innerW;
+      const slot = inThisRow === 1 ? span / 2 : (span / (inThisRow - 1)) * col;
+      const x = PAD_X + 12 + slot;
+      const y = bandTop + HEADER_H + row * ROW_H + ROW_H / 2;
+      positions.set(v.id, { x, y, bandTop, bandHeight });
+    });
+
+    bands.push({ key, label, y: bandTop, height: bandHeight, count: list.length });
+    cursor += bandHeight + BAND_GAP;
+  }
+
+  return { positions, bands, totalHeight: cursor };
 }
 
 export function MarketMap({
@@ -47,18 +112,19 @@ export function MarketMap({
     () => new Set(liveVendorIds),
     [liveVendorIds],
   );
+  const layout = useMemo(() => layoutVendors(vendors), [vendors]);
+  const viewH = Math.max(H, layout.totalHeight + 24);
   const selected = vendors.find((v) => v.id === selectedId);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-[linear-gradient(180deg,#F3E9D7_0%,#F9F2E2_100%)] shadow-card">
+    <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-[linear-gradient(180deg,#F6ECD8_0%,#FBF4E4_100%)] shadow-card">
       <svg
-        viewBox={`0 0 ${W} ${H}`}
+        viewBox={`0 0 ${W} ${viewH}`}
         width="100%"
         height={height}
         role="img"
         aria-label="แผนที่ตลาดทุ่งครุ 61"
       >
-        {/* background market boundary */}
         <defs>
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
             <path
@@ -69,36 +135,46 @@ export function MarketMap({
             />
           </pattern>
         </defs>
-        <rect width={W} height={H} fill="url(#grid)" />
+        <rect width={W} height={viewH} fill="url(#grid)" />
 
-        {/* faux alleys / market zones */}
-        <g opacity="0.5">
-          <rect x="90" y="70" width="420" height="70" rx="16" fill="#FFFFFF" stroke="#E5E0D8" />
-          <rect x="90" y="200" width="420" height="70" rx="16" fill="#FFFFFF" stroke="#E5E0D8" />
-          <rect x="90" y="330" width="420" height="70" rx="16" fill="#FFFFFF" stroke="#E5E0D8" />
-          <text x="100" y="102" fill="#8B7A5E" fontSize="14" fontWeight={600}>โซน A · อาหาร</text>
-          <text x="100" y="232" fill="#8B7A5E" fontSize="14" fontWeight={600}>โซน B · เครื่องดื่ม</text>
-          <text x="100" y="362" fill="#8B7A5E" fontSize="14" fontWeight={600}>โซน C/D/E · อื่น ๆ</text>
-        </g>
-
-        {/* center marker: market entrance */}
-        <g>
-          <circle cx={W / 2} cy={H / 2} r={8} fill="#C84B31" opacity="0.25" />
-          <circle cx={W / 2} cy={H / 2} r={4} fill="#C84B31" />
-          <text
-            x={W / 2 + 10}
-            y={H / 2 + 4}
-            fontSize="11"
-            fill="#6B7280"
-            fontWeight={500}
-          >
-            ทางเข้าตลาด
-          </text>
-        </g>
+        {/* zone bands */}
+        {layout.bands.map((b) => (
+          <g key={b.key}>
+            <rect
+              x={PAD_X}
+              y={b.y}
+              width={W - PAD_X * 2}
+              height={b.height}
+              rx={18}
+              fill="#FFFFFF"
+              stroke="#E5E0D8"
+            />
+            <text
+              x={PAD_X + 16}
+              y={b.y + 19}
+              fill="#8B7A5E"
+              fontSize="13"
+              fontWeight={700}
+            >
+              {b.label}
+            </text>
+            <text
+              x={W - PAD_X - 16}
+              y={b.y + 19}
+              fill="#A89576"
+              fontSize="11"
+              textAnchor="end"
+            >
+              {b.count} ร้าน
+            </text>
+          </g>
+        ))}
 
         {/* vendor markers */}
         {vendors.map((v) => {
-          const { x, y } = project({ lat: v.latitude, lng: v.longitude });
+          const pos = layout.positions.get(v.id);
+          if (!pos) return null;
+          const { x, y } = pos;
           const cat = categoryMeta(v.category);
           const isLive = liveSaleVendorIds.has(v.id);
           const isSelected = selectedId === v.id;
@@ -110,17 +186,17 @@ export function MarketMap({
               onClick={() => setSelectedId(v.id)}
             >
               {isLive ? (
-                <circle r={20} fill={cat.color} opacity="0.2">
+                <circle r={MARKER_R + 8} fill={cat.color} opacity="0.18">
                   <animate
                     attributeName="r"
-                    values="14;24;14"
+                    values={`${MARKER_R + 4};${MARKER_R + 12};${MARKER_R + 4}`}
                     dur="2s"
                     repeatCount="indefinite"
                   />
                 </circle>
               ) : null}
               <circle
-                r={isSelected ? 16 : 12}
+                r={isSelected ? MARKER_R + 4 : MARKER_R}
                 fill={cat.color}
                 stroke="#FFF"
                 strokeWidth={3}
@@ -128,10 +204,20 @@ export function MarketMap({
               <text
                 textAnchor="middle"
                 y={5}
-                fontSize={isSelected ? "16" : "13"}
+                fontSize={isSelected ? "17" : "15"}
                 style={{ pointerEvents: "none" }}
               >
                 {v.logoEmoji}
+              </text>
+              <text
+                textAnchor="middle"
+                y={MARKER_R + 14}
+                fontSize="10"
+                fontWeight={600}
+                fill="#6B5A3F"
+                style={{ pointerEvents: "none" }}
+              >
+                {v.boothNumber}
               </text>
             </g>
           );
