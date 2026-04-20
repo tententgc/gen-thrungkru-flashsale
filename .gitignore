@@ -47,3 +47,10 @@ tsconfig.tsbuildinfo
 # Broader env catch-all (keep .env.example explicitly)
 .env*
 !.env.example
+
+# This project uses pnpm — reject npm/yarn/bun lockfiles so installs stay
+# deterministic and Vercel picks the right package manager.
+package-lock.json
+yarn.lock
+bun.lock
+bun.lockb
