@@ -19,6 +19,25 @@ export default async function VendorDashboardPage() {
     getForecast(48),
   ]);
   const active = sales.filter((f) => f.status === "ACTIVE");
+
+  // Sales figures come from the vendor's own flash sales — no shared demo
+  // numbers. A brand-new account has nothing sold yet, so these show as 0.
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const salesToday = sales.filter((s) => {
+    const end = new Date(s.endAt).getTime();
+    return end >= todayStart.getTime() && s.status !== "CANCELLED";
+  });
+  const revenueTodayBaht = salesToday.reduce(
+    (sum, s) =>
+      sum + s.items.reduce((x, it) => x + it.stockSold * it.salePrice, 0),
+    0,
+  );
+  const itemsSoldToday = salesToday.reduce(
+    (sum, s) => sum + s.items.reduce((x, it) => x + it.stockSold, 0),
+    0,
+  );
+
   const tomorrow = forecast.slice(24, 48);
   const peakIdx = tomorrow.reduce(
     (best, p, i) => (p.count > tomorrow[best].count ? i : best),
@@ -46,10 +65,26 @@ export default async function VendorDashboardPage() {
       </header>
 
       <section className="grid gap-4 md:grid-cols-4">
-        <Kpi title="ยอดขายวันนี้" value={formatTHB(3_420)} trend="+18%" />
-        <Kpi title="ผู้เข้าชมร้าน" value="284" trend="+32%" />
-        <Kpi title="ผู้ติดตาม" value={vendor.followerCount.toString()} trend="+5" />
-        <Kpi title="Flash Sale ตอนนี้" value={active.length.toString()} trend={`${sales.length} สัปดาห์นี้`} />
+        <Kpi
+          title="ยอดขายวันนี้"
+          value={formatTHB(revenueTodayBaht)}
+          trend={itemsSoldToday > 0 ? `${itemsSoldToday} ชิ้น` : "ยังไม่มียอดขาย"}
+        />
+        <Kpi
+          title="สินค้าในร้าน"
+          value={products.length.toString()}
+          trend={products.length > 0 ? "พร้อมขาย" : "ยังไม่มีสินค้า"}
+        />
+        <Kpi
+          title="ผู้ติดตาม"
+          value={vendor.followerCount.toString()}
+          trend={vendor.followerCount > 0 ? "คนกด follow" : "ยังไม่มีผู้ติดตาม"}
+        />
+        <Kpi
+          title="Flash Sale ตอนนี้"
+          value={active.length.toString()}
+          trend={sales.length > 0 ? `${sales.length} ครั้งทั้งหมด` : "ยังไม่เคยสร้าง"}
+        />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
@@ -131,16 +166,11 @@ function Kpi({
   value: string;
   trend: string;
 }) {
-  const positive = trend.startsWith("+");
   return (
     <div className="card p-4">
       <div className="text-xs uppercase tracking-wider text-muted">{title}</div>
       <div className="mt-1 text-2xl font-extrabold">{value}</div>
-      <div
-        className={`mt-1 text-xs font-semibold ${positive ? "text-success" : "text-muted"}`}
-      >
-        {trend}
-      </div>
+      <div className="mt-1 text-xs font-semibold text-muted">{trend}</div>
     </div>
   );
 }

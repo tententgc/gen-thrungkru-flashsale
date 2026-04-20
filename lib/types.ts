@@ -64,6 +64,7 @@ export interface FlashSaleItem {
   salePrice: number;
   stockLimit?: number;
   stockSold: number;
+  product?: Product;
 }
 
 export interface FlashSale {
@@ -75,6 +76,7 @@ export interface FlashSale {
   endAt: string;
   status: FlashSaleStatus;
   items: FlashSaleItem[];
+  vendor?: Vendor;
 }
 
 export interface CrowdForecastPoint {

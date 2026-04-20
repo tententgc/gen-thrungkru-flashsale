@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { CATEGORIES } from "@/lib/categories";
 import { CheckIcon } from "@/components/icons";
+import { completeOnboarding } from "@/lib/actions/vendor";
+import { MARKET_CENTER } from "@/lib/geo";
 
 type Step = 1 | 2 | 3;
 const DAYS = [
@@ -16,14 +18,30 @@ const DAYS = [
   { k: "sun", label: "อา" },
 ];
 
+function slugify(s: string) {
+  const base = s
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0E00-\u0E7F-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return base || `shop-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export default function VendorOnboardingPage() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>("FOOD_MAIN");
   const [booth, setBooth] = useState("");
+  const [phone, setPhone] = useState("");
   const [open, setOpen] = useState("17:00");
   const [close, setClose] = useState("22:00");
-  const [days, setDays] = useState<Set<string>>(new Set(DAYS.slice(0, 5).map((d) => d.k)));
+  const [days, setDays] = useState<Set<string>>(
+    new Set(DAYS.slice(0, 5).map((d) => d.k)),
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function toggleDay(k: string) {
     setDays((s) => {
@@ -31,6 +49,41 @@ export default function VendorOnboardingPage() {
       if (next.has(k)) next.delete(k);
       else next.add(k);
       return next;
+    });
+  }
+
+  function finish() {
+    setError(null);
+    if (!name.trim()) {
+      setStep(1);
+      setError("กรุณากรอกชื่อร้าน");
+      return;
+    }
+    const fd = new FormData();
+    fd.set("shopName", name.trim());
+    fd.set("slug", slugify(name));
+    fd.set("category", category);
+    fd.set("phone", phone.trim() || "0000000000");
+    fd.set("logoEmoji", "🏪");
+    fd.set("latitude", String(MARKET_CENTER.lat));
+    fd.set("longitude", String(MARKET_CENTER.lng));
+    if (booth.trim()) fd.set("boothNumber", booth.trim());
+    fd.set("openTime", open);
+    fd.set("closeTime", close);
+    for (const d of days) fd.append("openDays", d);
+
+    startTransition(async () => {
+      try {
+        await completeOnboarding(fd);
+        // completeOnboarding redirects on success — if it returns, it failed.
+      } catch (e) {
+        // NEXT_REDIRECT throws to signal the redirect; treat as success.
+        if (e instanceof Error && /NEXT_REDIRECT/.test(e.message)) {
+          router.push("/vendor/dashboard");
+          return;
+        }
+        setError(e instanceof Error ? e.message : "ไม่สามารถสร้างร้านได้");
+      }
     });
   }
 
@@ -76,6 +129,18 @@ export default function VendorOnboardingPage() {
                 className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
               />
             </label>
+            <label className="block space-y-1">
+              <span className="text-xs font-semibold">
+                เบอร์โทร (ไม่บังคับ)
+              </span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0812345678"
+                inputMode="tel"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+              />
+            </label>
             <div>
               <span className="text-xs font-semibold">หมวดหมู่</span>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -111,7 +176,9 @@ export default function VendorOnboardingPage() {
               </div>
             </div>
             <label className="block space-y-1">
-              <span className="text-xs font-semibold">เลขล็อก (Booth Number)</span>
+              <span className="text-xs font-semibold">
+                เลขล็อก (Booth Number)
+              </span>
               <input
                 value={booth}
                 onChange={(e) => setBooth(e.target.value)}
@@ -161,12 +228,14 @@ export default function VendorOnboardingPage() {
             </div>
           </>
         ) : null}
+
+        {error ? <p className="text-sm text-danger">{error}</p> : null}
       </section>
 
       <div className="mt-4 flex items-center justify-between">
         <button
           onClick={() => setStep((s) => (Math.max(1, s - 1) as Step))}
-          disabled={step === 1}
+          disabled={step === 1 || isPending}
           className="btn-outline disabled:opacity-40"
         >
           ← ย้อนกลับ
@@ -174,14 +243,19 @@ export default function VendorOnboardingPage() {
         {step < 3 ? (
           <button
             onClick={() => setStep((s) => (Math.min(3, s + 1) as Step))}
-            className="btn-primary"
+            disabled={step === 1 && !name.trim()}
+            className="btn-primary disabled:opacity-40"
           >
             ต่อไป →
           </button>
         ) : (
-          <Link href="/vendor/dashboard" className="btn-primary">
-            เสร็จสิ้น — เข้า Dashboard
-          </Link>
+          <button
+            onClick={finish}
+            disabled={isPending}
+            className="btn-primary disabled:opacity-50"
+          >
+            {isPending ? "กำลังสร้าง..." : "เสร็จสิ้น — เข้า Dashboard"}
+          </button>
         )}
       </div>
     </div>

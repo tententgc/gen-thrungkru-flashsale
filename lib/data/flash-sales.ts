@@ -7,9 +7,56 @@ import {
   flashSaleById as mockById,
   flashSalesForVendor as mockForVendor,
   activeFlashSales as mockActive,
+  VENDORS,
+  PRODUCTS,
 } from "@/lib/mock-data";
+import { VENDOR_IMAGES, PRODUCT_IMAGES } from "@/lib/images";
 import { isUuid } from "@/lib/utils";
-import type { FlashSale } from "@/lib/types";
+import type { FlashSale, Vendor, Product } from "@/lib/types";
+
+function vendorRowToView(v: any): Vendor {
+  const curated = VENDOR_IMAGES[v.slug];
+  return {
+    id: v.id,
+    slug: v.slug,
+    shopName: v.shopName,
+    description: v.description ?? "",
+    category: v.category,
+    phone: v.phone,
+    lineId: v.lineId ?? undefined,
+    coverImageUrl: v.coverImageUrl || curated?.cover || "",
+    logoUrl: v.logoUrl || curated?.logo,
+    logoEmoji: v.logoEmoji ?? "🏪",
+    latitude: v.latitude,
+    longitude: v.longitude,
+    boothNumber: v.boothNumber ?? "",
+    openTime: v.openTime ?? "",
+    closeTime: v.closeTime ?? "",
+    openDays: v.openDays ?? [],
+    isActive: v.isActive,
+    isVerified: v.isVerified,
+    rating: v.rating,
+    reviewCount: v.reviewCount,
+    followerCount: v.followerCount,
+  };
+}
+
+function productRowToView(row: any): Product {
+  const mockMatch = PRODUCTS.find((p) => p.name === row.name);
+  const fallback = mockMatch ? PRODUCT_IMAGES[mockMatch.id] : undefined;
+  return {
+    id: row.id,
+    vendorId: row.vendorId,
+    name: row.name,
+    description: row.description ?? "",
+    imageEmoji: row.imageEmoji ?? "🍴",
+    imageUrl: row.imageUrl || fallback,
+    regularPrice: Number(row.regularPrice),
+    category: row.category ?? "",
+    isAvailable: row.isAvailable,
+    tags: row.tags ?? [],
+  };
+}
 
 function toView(row: any): FlashSale {
   return {
@@ -22,14 +69,21 @@ function toView(row: any): FlashSale {
     endAt:
       typeof row.endAt === "string" ? row.endAt : row.endAt.toISOString(),
     status: row.status,
+    vendor: row.vendor ? vendorRowToView(row.vendor) : undefined,
     items: (row.items ?? []).map((it: any) => ({
       productId: it.productId,
       salePrice: Number(it.salePrice),
       stockLimit: it.stockLimit ?? undefined,
       stockSold: it.stockSold ?? 0,
+      product: it.product ? productRowToView(it.product) : undefined,
     })),
   };
 }
+
+const flashSaleInclude = {
+  items: { include: { product: true } },
+  vendor: true,
+} as const;
 
 async function tryDb<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   if (!ready.db || !prisma) return fallback;
@@ -49,7 +103,7 @@ const fetchFlashSales = unstable_cache(
         prisma!.flashSale.findMany({
           where: status ? { status } : undefined,
           orderBy: { endAt: "asc" },
-          include: { items: true },
+          include: flashSaleInclude,
         }),
       [] as any[],
     );
@@ -74,7 +128,7 @@ const fetchFlashSaleById = unstable_cache(
           () =>
             prisma!.flashSale.findUnique({
               where: { id },
-              include: { items: true },
+              include: flashSaleInclude,
             }),
           null,
         )
@@ -95,7 +149,7 @@ const fetchActiveFlashSales = unstable_cache(
         prisma!.flashSale.findMany({
           where: { status: "ACTIVE" },
           orderBy: { endAt: "asc" },
-          include: { items: true },
+          include: flashSaleInclude,
         }),
       [] as any[],
     );
@@ -116,7 +170,7 @@ const fetchFlashSalesForVendor = unstable_cache(
             prisma!.flashSale.findMany({
               where: { vendorId },
               orderBy: { createdAt: "desc" },
-              include: { items: true },
+              include: flashSaleInclude,
             }),
           [] as any[],
         )

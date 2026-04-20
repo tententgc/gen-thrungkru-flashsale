@@ -20,12 +20,15 @@ export function FlashSaleCard({
    *  and satisfies the LCP dev warning. */
   priority?: boolean;
 }) {
-  const vendor = vendorProp ?? VENDORS.find((x) => x.id === sale.vendorId);
+  const vendor =
+    vendorProp ?? sale.vendor ?? VENDORS.find((x) => x.id === sale.vendorId);
   if (!vendor) return null;
   const cat = categoryMeta(vendor.category);
   const firstItem = sale.items[0];
   const product =
-    productProp ?? PRODUCTS.find((x) => x.id === firstItem.productId);
+    productProp ??
+    firstItem?.product ??
+    PRODUCTS.find((x) => x.id === firstItem?.productId);
 
   const off = product ? percentOff(product.regularPrice, firstItem.salePrice) : 0;
   const soldRatio = firstItem.stockLimit

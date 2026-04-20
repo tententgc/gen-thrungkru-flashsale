@@ -34,7 +34,8 @@
       "Bash(pnpm rebuild *)",
       "Bash(pnpm exec *)",
       "Bash(pnpm run *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(xargs -r kill -9)"
     ]
   }
 }

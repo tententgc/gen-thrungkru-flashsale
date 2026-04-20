@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth/session";
+import { requireRole, requireSession } from "@/lib/auth/session";
 import { ready } from "@/lib/env";
 
 const shopSchema = z.object({
@@ -160,11 +160,20 @@ export async function deleteVendor(vendorId: string) {
 }
 
 export async function completeOnboarding(form: FormData) {
-  const res = await upsertVendor({
+  // Onboarding is the first step a new account takes, so a CUSTOMER role is
+  // expected here — promote to VENDOR before the upsert instead of rejecting.
+  const user = await requireSession();
+  if (!ready.db || !prisma) {
+    return { ok: false as const, error: "ฐานข้อมูลยังไม่ได้ตั้งค่า" };
+  }
+  const rawSlug = String(form.get("slug") ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  const parsed = shopSchema.safeParse({
     shopName: String(form.get("shopName") ?? ""),
-    slug: String(form.get("slug") ?? "")
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-"),
+    slug: rawSlug || `shop-${user.id.slice(0, 8)}`,
     description: String(form.get("description") ?? "") || undefined,
     category: form.get("category") as ShopInput["category"],
     phone: String(form.get("phone") ?? ""),
@@ -176,6 +185,76 @@ export async function completeOnboarding(form: FormData) {
     closeTime: String(form.get("closeTime") ?? ""),
     openDays: (form.getAll("openDays") as string[]).filter(Boolean) as ShopInput["openDays"],
   });
-  if (!res.ok) return res;
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง",
+    };
+  }
+  const data = parsed.data;
+
+  // Slug must be unique — append a short id suffix if someone already took it.
+  let slug = data.slug;
+  const collision = await prisma.vendor.findFirst({
+    where: { slug, userId: { not: user.id } },
+    select: { id: true },
+  });
+  if (collision) slug = `${slug}-${user.id.slice(0, 6)}`;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { role: "VENDOR" },
+  });
+
+  await prisma.vendor.upsert({
+    where: { userId: user.id },
+    update: {
+      shopName: data.shopName,
+      slug,
+      description: data.description,
+      category: data.category,
+      phone: data.phone,
+      logoEmoji: data.logoEmoji,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      boothNumber: data.boothNumber,
+      openTime: data.openTime,
+      closeTime: data.closeTime,
+      openDays: data.openDays,
+    },
+    create: {
+      userId: user.id,
+      shopName: data.shopName,
+      slug,
+      description: data.description,
+      category: data.category,
+      phone: data.phone,
+      logoEmoji: data.logoEmoji,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      boothNumber: data.boothNumber,
+      openTime: data.openTime,
+      closeTime: data.closeTime,
+      openDays: data.openDays,
+    },
+  });
+
+  // Mirror the role bump into Supabase user metadata so future sessions see it
+  // even before the next Prisma read.
+  try {
+    const { createSupabaseService } = await import("@/lib/supabase/server");
+    const admin = createSupabaseService();
+    if (admin) {
+      await admin.auth.admin.updateUserById(user.id, {
+        user_metadata: { role: "VENDOR", displayName: user.displayName },
+      });
+    }
+  } catch {
+    // Non-fatal — Prisma is the source of truth for role on every render.
+  }
+
+  revalidatePath("/vendor/dashboard");
+  revalidatePath("/shops");
+  revalidatePath(`/shops/${slug}`);
   redirect("/vendor/dashboard");
 }

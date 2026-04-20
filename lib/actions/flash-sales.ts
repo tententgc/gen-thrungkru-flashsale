@@ -72,19 +72,7 @@ export async function createFlashSale(input: unknown) {
   }
   const data = parsed.data;
 
-  // No overlapping flash sales for same vendor
-  const overlapping = await prisma!.flashSale.findFirst({
-    where: {
-      vendorId: vendor.id,
-      status: { in: ["SCHEDULED", "ACTIVE"] },
-      OR: [
-        { startAt: { lte: data.endAt }, endAt: { gte: data.startAt } },
-      ],
-    },
-  });
-  if (overlapping) {
-    return { ok: false as const, error: "มี flash sale ซ้อนเวลากันอยู่" };
-  }
+  // Overlapping sales are allowed — vendors can run multiple promos in parallel.
 
   // Ensure every discount is ≥ 10%
   const productIds = data.items.map((i) => i.productId);

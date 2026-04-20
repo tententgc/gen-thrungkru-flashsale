@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseServer, createSupabaseService } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { ready } from "@/lib/env";
 import type { UserRole } from "@/lib/types";
@@ -41,6 +41,7 @@ export async function signInWithPassword(formData: FormData): Promise<ActionResu
 }
 
 export async function signUpWithPassword(formData: FormData): Promise<ActionResult> {
+  let redirectTo = "/";
   try {
     const email = emailSchema.parse(formData.get("email"));
     const password = passwordSchema.parse(formData.get("password"));
@@ -54,21 +55,50 @@ export async function signUpWithPassword(formData: FormData): Promise<ActionResu
     const role = (formData.get("role") as UserRole) ?? "CUSTOMER";
 
     const supabase = await ensureSupabase();
-    const { data, error } = await supabase.auth.signUp({
+
+    // Skip Supabase's confirmation-email flow — it hits the free-tier rate
+    // limit quickly during demo and blocks sign-up. Use the service-role
+    // admin API to create the user as pre-confirmed, then sign them in so
+    // the session cookie is issued immediately. Falls back to the normal
+    // signUp() path only if the service role isn't configured.
+    const admin = createSupabaseService();
+    let userId: string | null = null;
+    if (admin) {
+      const { data: created, error: adminErr } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { displayName, role },
+      });
+      if (adminErr) {
+        const alreadyExists = /registered|exists|duplicate/i.test(adminErr.message);
+        if (!alreadyExists) return { ok: false, error: adminErr.message };
+        // Email already in use — treat as sign-in attempt below.
+      } else {
+        userId = created.user?.id ?? null;
+      }
+    } else {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { displayName, role } },
+      });
+      if (error) return { ok: false, error: error.message };
+      userId = data.user?.id ?? null;
+    }
+
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: {
-        data: { displayName, role },
-      },
     });
-    if (error) return { ok: false, error: error.message };
+    if (signInErr) return { ok: false, error: signInErr.message };
 
-    if (data.user && ready.db && prisma) {
+    if (userId && ready.db && prisma) {
       await prisma.user.upsert({
-        where: { id: data.user.id },
+        where: { id: userId },
         update: { displayName, role, phone: phone ?? null },
         create: {
-          id: data.user.id,
+          id: userId,
           email,
           phone: phone ?? null,
           displayName,
@@ -76,10 +106,12 @@ export async function signUpWithPassword(formData: FormData): Promise<ActionResu
         },
       });
     }
+
+    redirectTo = role === "VENDOR" ? "/vendor/onboarding" : "/";
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "สมัครสมาชิกไม่สำเร็จ" };
   }
-  redirect(`/vendor/onboarding`);
+  redirect(redirectTo);
 }
 
 export async function requestPhoneOtp(formData: FormData): Promise<ActionResult> {
