@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SiteHeader } from "@/components/layout/site-header";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { getSessionUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: {
@@ -28,17 +29,19 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await getSessionUser();
+
   return (
     <html lang="th">
       <body className="min-h-screen flex flex-col bg-background text-ink">
         <SiteHeader />
         <main className="flex-1 pb-24 md:pb-8">{children}</main>
-        <BottomNav />
+        <BottomNav role={session?.role} />
         <footer className="hidden md:block border-t border-border bg-surface">
           <div className="container-page py-6 text-sm text-muted flex flex-col md:flex-row items-center justify-between gap-2">
             <div>© {new Date().getFullYear()} ตลาดทุ่งครุ 61 · PWA Platform</div>

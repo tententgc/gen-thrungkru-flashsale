@@ -5,10 +5,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { ready } from "@/lib/env";
+import { productRowToView } from "@/lib/data/products";
 
 const productSchema = z.object({
   name: z.string().min(2).max(80),
   description: z.string().max(400).optional(),
+  imageUrl: z.string().url().optional().or(z.literal("")),
   regularPrice: z.coerce.number().positive().max(1_000_000),
   category: z.string().max(40).optional(),
   tags: z.array(z.string()).max(10).default([]),
@@ -35,7 +37,7 @@ export async function createProduct(input: unknown) {
     },
   });
   revalidatePath("/vendor/products");
-  return { ok: true as const, product };
+  return { ok: true as const, product: productRowToView(product) };
 }
 
 export async function updateProduct(id: string, input: unknown) {
@@ -48,7 +50,7 @@ export async function updateProduct(id: string, input: unknown) {
   }
   const product = await prisma!.product.update({ where: { id }, data: parsed.data });
   revalidatePath("/vendor/products");
-  return { ok: true as const, product };
+  return { ok: true as const, product: productRowToView(product) };
 }
 
 export async function deleteProduct(id: string) {

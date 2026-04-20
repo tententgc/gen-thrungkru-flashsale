@@ -7,7 +7,7 @@ import { PRODUCT_IMAGES } from "@/lib/images";
 import { isUuid } from "@/lib/utils";
 import type { Product } from "@/lib/types";
 
-function toView(row: any): Product {
+export function productRowToView(row: any): Product {
   // Match DB row back to the curated mock image by name-based heuristic
   // until each row carries its own imageUrl in storage.
   const mockMatch = PRODUCTS.find((p) => p.name === row.name);
@@ -47,7 +47,7 @@ const fetchProductsForVendor = unstable_cache(
           [] as any[],
         )
       : ([] as any[]);
-    if (rows.length > 0) return rows.map(toView);
+    if (rows.length > 0) return rows.map(productRowToView);
     return PRODUCTS.filter((p) => p.vendorId === vendorId);
   },
   ["products:by-vendor"],
@@ -61,7 +61,7 @@ const fetchProductById = unstable_cache(
     const row = isUuid(id)
       ? await tryDb(() => prisma!.product.findUnique({ where: { id } }), null)
       : null;
-    if (row) return toView(row);
+    if (row) return productRowToView(row);
     return mockById(id) ?? null;
   },
   ["products:by-id"],
@@ -84,7 +84,7 @@ const fetchProductsByIds = unstable_cache(
             [] as any[],
           )
         : ([] as any[]);
-    if (rows.length > 0) return rows.map(toView);
+    if (rows.length > 0) return rows.map(productRowToView);
     return ids
       .map((id) => mockById(id))
       .filter((p): p is Product => p != null);
