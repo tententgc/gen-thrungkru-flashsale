@@ -37,3 +37,13 @@ tsconfig.tsbuildinfo
 
 # turbo
 .turbo/
+
+# Claude Code local settings (per-machine)
+.claude/settings.local.json
+
+# Vercel CLI linking info
+.vercel/
+
+# Broader env catch-all (keep .env.example explicitly)
+.env*
+!.env.example
