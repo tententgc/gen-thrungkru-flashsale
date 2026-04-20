@@ -28,14 +28,16 @@ function payloadUrl(payload: unknown): string | undefined {
   return undefined;
 }
 
-async function listNotifications(userId: string): Promise<NotificationView[]> {
+async function listAndMarkRead(userId: string): Promise<NotificationView[]> {
   if (!ready.db || !prisma) return [];
   const rows = await prisma.notificationLog.findMany({
     where: { userId },
     orderBy: { sentAt: "desc" },
     take: 50,
   });
-  return rows.map((n) => ({
+  // Snapshot the read state BEFORE marking so this render still shows the
+  // "unread" highlight on items the user is seeing for the first time.
+  const views = rows.map((n) => ({
     id: n.id,
     type: n.type,
     title: n.title,
@@ -44,6 +46,14 @@ async function listNotifications(userId: string): Promise<NotificationView[]> {
     href: payloadUrl(n.payload) ?? "/notifications",
     read: Boolean(n.readAt),
   }));
+  if (views.some((n) => !n.read)) {
+    await prisma.notificationLog.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    revalidatePath("/", "layout");
+  }
+  return views;
 }
 
 async function markAllRead(userId: string): Promise<void> {
@@ -62,7 +72,7 @@ export default async function NotificationsPage() {
   const session = await getSessionUser();
   if (!session) redirect(`/login?next=/notifications`);
 
-  const notifications = await listNotifications(session.id);
+  const notifications = await listAndMarkRead(session.id);
   const unread = notifications.filter((n) => !n.read).length;
   const markAll = markAllRead.bind(null, session.id);
 
