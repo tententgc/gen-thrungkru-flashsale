@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { ready } from "@/lib/env";
@@ -17,6 +18,13 @@ export interface SessionUser {
 // cookie read + DB lookup.
 export const getSessionUser = cache(
   async (): Promise<SessionUser | null> => {
+    // Fast path: no Supabase auth cookie → skip the client init + getUser()
+    // network round trip entirely. Anonymous visitors on public pages (which
+    // call this via the root layout) get zero Supabase overhead.
+    const cookieStore = await cookies();
+    const hasSbCookie = cookieStore.getAll().some((c) => c.name.startsWith("sb-"));
+    if (!hasSbCookie) return null;
+
     const supabase = await createSupabaseServer();
     if (!supabase) return null;
     let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
