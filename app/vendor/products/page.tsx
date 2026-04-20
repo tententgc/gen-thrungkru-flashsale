@@ -17,9 +17,9 @@ export default async function VendorProductsPage() {
           <h1 className="heading-hero">สินค้าของร้าน</h1>
           <p className="text-sm text-muted">{products.length} รายการ</p>
         </div>
-        <button className="btn-primary">
+        <Link href="/vendor/products/new" className="btn-primary">
           <PlusIcon className="h-4 w-4" /> เพิ่มสินค้า
-        </button>
+        </Link>
       </header>
 
       <div className="card overflow-hidden">

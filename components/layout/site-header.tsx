@@ -29,7 +29,9 @@ export async function SiteHeader() {
           <Link href="/flash-sales" className="btn-ghost">Flash Sale</Link>
           <Link href="/shops" className="btn-ghost">ร้านค้า</Link>
           <Link href="/crowd" className="btn-ghost">ความหนาแน่น</Link>
-          <Link href="/vendor/dashboard" className="btn-ghost">สำหรับร้าน</Link>
+          {session && (session.role === "VENDOR" || session.role === "ADMIN") && (
+            <Link href="/vendor/dashboard" className="btn-ghost">สำหรับร้าน</Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-2">

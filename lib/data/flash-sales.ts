@@ -14,7 +14,7 @@ import { VENDOR_IMAGES, PRODUCT_IMAGES } from "@/lib/images";
 import { isUuid } from "@/lib/utils";
 import type { FlashSale, Vendor, Product } from "@/lib/types";
 
-function vendorRowToView(v: any): Vendor {
+export function vendorRowToView(v: any): Vendor {
   const curated = VENDOR_IMAGES[v.slug];
   return {
     id: v.id,
@@ -41,7 +41,7 @@ function vendorRowToView(v: any): Vendor {
   };
 }
 
-function productRowToView(row: any): Product {
+export function productRowToView(row: any): Product {
   const mockMatch = PRODUCTS.find((p) => p.name === row.name);
   const fallback = mockMatch ? PRODUCT_IMAGES[mockMatch.id] : undefined;
   return {
@@ -58,7 +58,7 @@ function productRowToView(row: any): Product {
   };
 }
 
-function toView(row: any): FlashSale {
+export function toView(row: any): FlashSale {
   return {
     id: row.id,
     vendorId: row.vendorId,

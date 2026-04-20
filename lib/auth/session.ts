@@ -19,9 +19,14 @@ export const getSessionUser = cache(
   async (): Promise<SessionUser | null> => {
     const supabase = await createSupabaseServer();
     if (!supabase) return null;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+    try {
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    } catch {
+      // Stale/invalid refresh token — treat as signed out.
+      user = null;
+    }
     if (!user) return null;
 
     const meta = user.user_metadata as Record<string, unknown> | null;

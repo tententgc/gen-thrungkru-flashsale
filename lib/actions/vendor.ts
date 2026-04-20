@@ -118,20 +118,22 @@ export async function createUploadUrl(input: z.infer<typeof uploadSchema>) {
   const parsed = uploadSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "invalid input" };
 
-  const supabase = await createSupabaseServer();
-  if (!supabase) return { ok: false as const, error: "supabase offline" };
+  const { createSupabaseService } = await import("@/lib/supabase/server");
+  const supabase = createSupabaseService();
+  if (!supabase) return { ok: false as const, error: "supabase service offline" };
+
   const ext = parsed.data.contentType.split("/")[1] ?? "bin";
   const path = `${user.id}/${parsed.data.kind}/${Date.now()}.${ext}`;
   const { data, error } = await supabase.storage
     .from("shop-media")
-    .createSignedUploadUrl(path);
+    .createSignedUploadUrl(path, 3600); // URL valid for 1 hour
+
   if (error) return { ok: false as const, error: error.message };
   return {
     ok: true as const,
-    path: data.path,
-    token: data.token,
-    publicUrl: supabase.storage.from("shop-media").getPublicUrl(data.path).data
-      .publicUrl,
+    path: data.signedUrl, // Use the signedUrl directly
+    token: "", // Not needed for signed URLs
+    publicUrl: supabase.storage.from("shop-media").getPublicUrl(path).data.publicUrl,
   };
 }
 

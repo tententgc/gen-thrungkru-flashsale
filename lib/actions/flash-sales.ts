@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { ready } from "@/lib/env";
+import { toView } from "@/lib/data/flash-sales";
 
 const itemSchema = z.object({
   productId: z.string().uuid(),
@@ -109,13 +110,13 @@ export async function createFlashSale(input: unknown) {
         })),
       },
     },
-    include: { items: true },
+    include: { items: { include: { product: true } } },
   });
 
   revalidatePath("/vendor/flash-sales");
   revalidatePath("/flash-sales");
   revalidatePath("/");
-  return { ok: true as const, flashSale: fs };
+  return { ok: true as const, flashSale: toView(fs) };
 }
 
 export async function cancelFlashSale(id: string) {
