@@ -1,33 +1,23 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { listVendors } from "@/lib/data/vendors";
 import { listActiveFlashSales } from "@/lib/data/flash-sales";
 import { getForecast, getBestTimes } from "@/lib/data/crowd";
 import { FlashSaleCard } from "@/components/flash-sale/flash-sale-card";
 import { ShopCard } from "@/components/shop/shop-card";
-import { MarketMapSwitcher as MarketMap } from "@/components/map/market-map-switcher";
+import { MarketMap } from "@/components/map/market-map";
 import { CrowdLineChart } from "@/components/crowd/crowd-line-chart";
 import { BusyBadge } from "@/components/crowd/busy-badge";
 import { CATEGORIES } from "@/lib/categories";
 import { formatTimeTH } from "@/lib/utils";
 import { FlashIcon, ChevronIcon, TrendingIcon } from "@/components/icons";
+import type { BusyLevel } from "@/lib/types";
 
-export default async function HomePage() {
-  const [allSales, allVendors, forecast, best] = await Promise.all([
-    listActiveFlashSales(),
-    listVendors(),
-    getForecast(48),
-    getBestTimes(new Date(), 3),
-  ]);
-  const sales = allSales.slice(0, 6);
-  const shops = allVendors.slice(0, 6);
-  const next24 = forecast.slice(0, 24);
-  const nowLevel = forecast[0]?.level ?? "MODERATE";
-
+export default function HomePage() {
   return (
     <div className="container-page space-y-10 py-4 md:py-8">
-      <HeroSection nowLevel={nowLevel} />
+      <HeroSection />
 
-      {/* Flash sale section */}
       <section>
         <SectionHeader
           icon={<FlashIcon className="h-5 w-5 text-flash" />}
@@ -35,30 +25,24 @@ export default async function HomePage() {
           subtitle="ลดราคาจำกัดเวลา — รีบก่อนหมด"
           href="/flash-sales"
         />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {sales.map((sale) => (
-            <FlashSaleCard key={sale.id} sale={sale} />
-          ))}
-        </div>
+        <Suspense fallback={<CardGridSkeleton count={3} />}>
+          <FlashSaleSection />
+        </Suspense>
       </section>
 
-      {/* Map section */}
       <section>
         <SectionHeader
           title="แผนที่ตลาดทุ่งครุ 61"
           subtitle="หมุดแสดงตำแหน่งร้านค้า — วงแหวนกะพริบ = มี flash sale"
           href="/map"
         />
-        <MarketMap vendors={allVendors} />
+        <Suspense fallback={<MapSkeleton />}>
+          <MapSection />
+        </Suspense>
       </section>
 
-      {/* Categories */}
       <section>
-        <SectionHeader
-          title="หมวดหมู่"
-          subtitle="เลือกประเภทร้านที่สนใจ"
-          href="/shops"
-        />
+        <SectionHeader title="หมวดหมู่" subtitle="เลือกประเภทร้านที่สนใจ" href="/shops" />
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 md:grid-cols-10">
           {CATEGORIES.map((c) => (
             <Link
@@ -78,7 +62,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Crowd forecast */}
       <section>
         <SectionHeader
           icon={<TrendingIcon className="h-5 w-5 text-accent" />}
@@ -86,65 +69,91 @@ export default async function HomePage() {
           subtitle="พยากรณ์ความหนาแน่นด้วย LightGBM (MAE < 20 คน/ชม.)"
           href="/crowd"
         />
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="card p-5 lg:col-span-1">
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted">
-              ตอนนี้
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <BusyBadge level={nowLevel} size="lg" />
-              <span className="text-xs text-muted">· {formatTimeTH(new Date())}</span>
-            </div>
-            <div className="mt-4 text-2xl font-extrabold">
-              {forecast[0]?.count.toLocaleString("th-TH")} คน
-            </div>
-            <div className="text-xs text-muted">
-              คาดว่าอยู่ในตลาดโดยประมาณในชั่วโมงนี้
-            </div>
-
-            <div className="mt-6">
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted">
-                เวลาที่ดีที่สุดวันนี้
-              </div>
-              <ul className="mt-2 space-y-1.5">
-                {best.map((b) => (
-                  <li
-                    key={b.time}
-                    className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-1.5 text-sm"
-                  >
-                    <span className="font-mono font-semibold">
-                      {formatTimeTH(b.time)}
-                    </span>
-                    <span className="text-xs text-muted">{b.count} คน</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <div className="lg:col-span-2">
-            <CrowdLineChart points={next24} />
-          </div>
-        </div>
+        <Suspense fallback={<CrowdSkeleton />}>
+          <CrowdSection />
+        </Suspense>
       </section>
 
-      {/* Shops */}
       <section>
-        <SectionHeader
-          title="ร้านแนะนำ"
-          subtitle="ร้านยอดนิยมและร้านใหม่ในตลาด"
-          href="/shops"
-        />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {shops.map((v) => (
-            <ShopCard key={v.id} vendor={v} />
-          ))}
-        </div>
+        <SectionHeader title="ร้านแนะนำ" subtitle="ร้านยอดนิยมและร้านใหม่ในตลาด" href="/shops" />
+        <Suspense fallback={<CardGridSkeleton count={3} />}>
+          <ShopsSection />
+        </Suspense>
       </section>
     </div>
   );
 }
 
-function HeroSection({ nowLevel }: { nowLevel: "VERY_QUIET" | "QUIET" | "MODERATE" | "BUSY" | "VERY_BUSY" | "PEAK" }) {
+async function FlashSaleSection() {
+  const sales = (await listActiveFlashSales()).slice(0, 6);
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {sales.map((sale, i) => (
+        <FlashSaleCard key={sale.id} sale={sale} priority={i === 0} />
+      ))}
+    </div>
+  );
+}
+
+async function MapSection() {
+  const [vendors, liveSales] = await Promise.all([listVendors(), listActiveFlashSales()]);
+  const liveVendorIds = liveSales.map((s) => s.vendorId);
+  return <MarketMap vendors={vendors} liveVendorIds={liveVendorIds} />;
+}
+
+async function CrowdSection() {
+  const [forecast, best] = await Promise.all([getForecast(48), getBestTimes(new Date(), 3)]);
+  const next24 = forecast.slice(0, 24);
+  const nowLevel = (forecast[0]?.level ?? "MODERATE") as BusyLevel;
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <div className="card p-5 lg:col-span-1">
+        <div className="text-xs font-semibold uppercase tracking-wider text-muted">ตอนนี้</div>
+        <div className="mt-2 flex items-center gap-2">
+          <BusyBadge level={nowLevel} size="lg" />
+          <span className="text-xs text-muted">· {formatTimeTH(new Date())}</span>
+        </div>
+        <div className="mt-4 text-2xl font-extrabold">
+          {forecast[0]?.count.toLocaleString("th-TH")} คน
+        </div>
+        <div className="text-xs text-muted">คาดว่าอยู่ในตลาดโดยประมาณในชั่วโมงนี้</div>
+
+        <div className="mt-6">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted">
+            เวลาที่ดีที่สุดวันนี้
+          </div>
+          <ul className="mt-2 space-y-1.5">
+            {best.map((b) => (
+              <li
+                key={b.time}
+                className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-1.5 text-sm"
+              >
+                <span className="font-mono font-semibold">{formatTimeTH(b.time)}</span>
+                <span className="text-xs text-muted">{b.count} คน</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="lg:col-span-2">
+        <CrowdLineChart points={next24} />
+      </div>
+    </div>
+  );
+}
+
+async function ShopsSection() {
+  const shops = (await listVendors()).slice(0, 6);
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {shops.map((v) => (
+        <ShopCard key={v.id} vendor={v} />
+      ))}
+    </div>
+  );
+}
+
+function HeroSection() {
   return (
     <section className="overflow-hidden rounded-3xl border border-border bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary-100 via-secondary/30 to-background p-6 sm:p-8">
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -158,7 +167,8 @@ function HeroSection({ nowLevel }: { nowLevel: "VERY_QUIET" | "QUIET" | "MODERAT
             <span className="text-primary">ไม่พลาดดีลเด็ด รู้ก่อนใกล้ตัว</span>
           </h1>
           <p className="text-sm text-muted sm:text-base">
-            รวมร้านค้าในตลาด + แจ้งเตือน Flash Sale เมื่อคุณอยู่ในรัศมี 1 กม. พร้อมพยากรณ์ความหนาแน่นของคนในตลาดล่วงหน้า 7 วัน
+            รวมร้านค้าในตลาด + แจ้งเตือน Flash Sale เมื่อคุณอยู่ในรัศมี 1 กม.
+            พร้อมพยากรณ์ความหนาแน่นของคนในตลาดล่วงหน้า 7 วัน
           </p>
           <div className="flex flex-wrap gap-2 pt-2">
             <Link href="/flash-sales" className="btn-primary">
@@ -170,17 +180,6 @@ function HeroSection({ nowLevel }: { nowLevel: "VERY_QUIET" | "QUIET" | "MODERAT
             <Link href="/vendor/onboarding" className="btn-ghost">
               ลงทะเบียนร้าน →
             </Link>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 rounded-2xl bg-surface/70 p-4 backdrop-blur">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-muted">ตอนนี้ที่ตลาด</div>
-            <div className="mt-1">
-              <BusyBadge level={nowLevel} size="lg" />
-            </div>
-            <div className="mt-2 font-mono text-xs text-muted">
-              อัปเดตสด ทุก 15 นาที
-            </div>
           </div>
         </div>
       </div>
@@ -213,6 +212,34 @@ function SectionHeader({
           ดูทั้งหมด <ChevronIcon className="h-4 w-4" />
         </Link>
       ) : null}
+    </div>
+  );
+}
+
+function CardGridSkeleton({ count }: { count: number }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="card h-44 animate-pulse bg-border/40" />
+      ))}
+    </div>
+  );
+}
+
+function MapSkeleton() {
+  return (
+    <div
+      className="w-full overflow-hidden rounded-2xl border border-border bg-border/40 animate-pulse"
+      style={{ height: 480 }}
+    />
+  );
+}
+
+function CrowdSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <div className="card h-56 animate-pulse bg-border/40 lg:col-span-1" />
+      <div className="card h-56 animate-pulse bg-border/40 lg:col-span-2" />
     </div>
   );
 }

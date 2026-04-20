@@ -2,8 +2,12 @@ import Link from "next/link";
 import { BellIcon, SparkIcon } from "@/components/icons";
 import { SearchBar } from "@/components/search-bar";
 import { UserMenu } from "@/components/auth/user-menu";
+import { getSessionUser } from "@/lib/auth/session";
+import { getUnreadNotificationCount } from "@/lib/data/notifications";
 
 export async function SiteHeader() {
+  const session = await getSessionUser();
+  const unread = session ? await getUnreadNotificationCount(session.id) : 0;
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="container-page flex items-center justify-between gap-4 py-3">
@@ -30,14 +34,20 @@ export async function SiteHeader() {
 
         <div className="flex items-center gap-2">
           <Link
-            aria-label="การแจ้งเตือน"
+            aria-label={
+              unread > 0
+                ? `การแจ้งเตือน — ${unread} รายการยังไม่ได้อ่าน`
+                : "การแจ้งเตือน"
+            }
             href="/notifications"
             className="relative h-10 w-10 grid place-items-center rounded-full border border-border bg-surface hover:bg-primary-50"
           >
             <BellIcon className="h-5 w-5" />
-            <span className="absolute -top-0.5 -right-0.5 h-5 min-w-[1.25rem] px-1 grid place-items-center rounded-full bg-flash text-[10px] font-bold text-white">
-              3
-            </span>
+            {unread > 0 ? (
+              <span className="absolute -top-0.5 -right-0.5 h-5 min-w-[1.25rem] px-1 grid place-items-center rounded-full bg-flash text-[10px] font-bold text-white">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            ) : null}
           </Link>
           <UserMenu />
         </div>

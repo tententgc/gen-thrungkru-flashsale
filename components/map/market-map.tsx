@@ -5,7 +5,6 @@ import Link from "next/link";
 import type { Vendor } from "@/lib/types";
 import { categoryMeta } from "@/lib/categories";
 import { MARKET_CENTER, haversineMeters, formatDistance } from "@/lib/geo";
-import { activeFlashSales } from "@/lib/mock-data";
 import { PinIcon, StarIcon } from "@/components/icons";
 
 /**
@@ -34,17 +33,19 @@ function project(v: { lat: number; lng: number }, zoomMeters = 600) {
 
 export function MarketMap({
   vendors,
+  liveVendorIds = [],
   height = 480,
   showLegend = true,
 }: {
   vendors: Vendor[];
+  liveVendorIds?: string[];
   height?: number;
   showLegend?: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const liveSaleVendorIds = useMemo(
-    () => new Set(activeFlashSales().map((fs) => fs.vendorId)),
-    [],
+    () => new Set(liveVendorIds),
+    [liveVendorIds],
   );
   const selected = vendors.find((v) => v.id === selectedId);
 

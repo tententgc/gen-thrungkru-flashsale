@@ -1,33 +1,36 @@
 import Link from "next/link";
-import { getVendorById, getVendorByUserId } from "@/lib/data/vendors";
+import { requireVendor } from "@/lib/auth/vendor";
 import { listProductsForVendor } from "@/lib/data/products";
 import { listFlashSalesForVendor } from "@/lib/data/flash-sales";
 import { getForecast } from "@/lib/data/crowd";
-import { getSessionUser } from "@/lib/auth/session";
 import { FlashSaleCard } from "@/components/flash-sale/flash-sale-card";
 import { CrowdLineChart } from "@/components/crowd/crowd-line-chart";
 import { BusyBadge } from "@/components/crowd/busy-badge";
-import { formatTHB } from "@/lib/utils";
+import { formatTHB, formatTimeTH } from "@/lib/utils";
 import { FlashIcon, PlusIcon, TrendingIcon } from "@/components/icons";
 
 export const metadata = { title: "ภาพรวมร้านของฉัน" };
 
 export default async function VendorDashboardPage() {
-  const user = await getSessionUser();
-  // Real vendor when logged in; demo vendor otherwise.
-  const vendor = user
-    ? (await getVendorByUserId(user.id)) ?? (await getVendorById("v-01"))
-    : await getVendorById("v-01");
-  if (!vendor) return null;
+  const vendor = await requireVendor("/vendor/dashboard");
   const [products, sales, forecast] = await Promise.all([
     listProductsForVendor(vendor.id),
     listFlashSalesForVendor(vendor.id),
     getForecast(48),
   ]);
   const active = sales.filter((f) => f.status === "ACTIVE");
-  const peakTomorrow = Math.max(
-    ...forecast.slice(24, 48).map((p) => p.count),
+  const tomorrow = forecast.slice(24, 48);
+  const peakIdx = tomorrow.reduce(
+    (best, p, i) => (p.count > tomorrow[best].count ? i : best),
+    0,
   );
+  const peakTomorrow = tomorrow[peakIdx]?.count ?? 0;
+  const peakStart = tomorrow[peakIdx]?.time;
+  const peakEnd = tomorrow[peakIdx + 1]?.time ?? peakStart;
+  const peakWindow =
+    peakStart && peakEnd
+      ? `${formatTimeTH(peakStart)} – ${formatTimeTH(peakEnd)}`
+      : "—";
   const nowLevel = forecast[0].level;
 
   return (
@@ -59,7 +62,7 @@ export default async function VendorDashboardPage() {
           </p>
           <div className="rounded-xl bg-accent/10 p-3 mt-2 space-y-1">
             <div className="text-xs text-muted">พรุ่งนี้พีค</div>
-            <div className="font-mono text-2xl font-extrabold">18:30 – 19:30</div>
+            <div className="font-mono text-2xl font-extrabold">{peakWindow}</div>
             <div className="text-xs text-muted">
               คาดว่า ~{peakTomorrow} คนจะอยู่ในตลาด
             </div>

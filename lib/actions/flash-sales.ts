@@ -38,16 +38,34 @@ const flashSaleSchema = z
     }
   });
 
-async function getVendorForUser() {
-  const user = await requireRole(["VENDOR", "ADMIN"]);
-  if (!ready.db || !prisma) throw new Error("DB offline");
-  const vendor = await prisma.vendor.findUnique({ where: { userId: user.id } });
-  if (!vendor) throw new Error("ยังไม่มีร้าน");
-  return { user, vendor };
+type VendorCtx = Awaited<ReturnType<NonNullable<typeof prisma>["vendor"]["findUnique"]>>;
+type VendorResult =
+  | { ok: true; user: Awaited<ReturnType<typeof requireRole>>; vendor: NonNullable<VendorCtx> }
+  | { ok: false; error: string };
+
+// Resolve the signed-in vendor for a server action. Returns a Result instead
+// of throwing so callers surface a friendly form error instead of a 500.
+async function getVendorForUser(): Promise<VendorResult> {
+  try {
+    const user = await requireRole(["VENDOR", "ADMIN"]);
+    if (!ready.db || !prisma) return { ok: false, error: "ฐานข้อมูลยังไม่พร้อม ลองใหม่อีกครั้ง" };
+    const vendor = await prisma.vendor.findUnique({ where: { userId: user.id } });
+    if (!vendor) {
+      return {
+        ok: false,
+        error: "ยังไม่ได้ลงทะเบียนร้าน — ไปที่ /vendor/onboarding เพื่อสร้างร้านก่อน",
+      };
+    }
+    return { ok: true, user, vendor };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "ไม่ได้รับอนุญาต" };
+  }
 }
 
 export async function createFlashSale(input: unknown) {
-  const { vendor } = await getVendorForUser();
+  const ctx = await getVendorForUser();
+  if (!ctx.ok) return { ok: false as const, error: ctx.error };
+  const { vendor } = ctx;
   const parsed = flashSaleSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
@@ -113,7 +131,9 @@ export async function createFlashSale(input: unknown) {
 }
 
 export async function cancelFlashSale(id: string) {
-  const { vendor } = await getVendorForUser();
+  const ctx = await getVendorForUser();
+  if (!ctx.ok) return { ok: false as const, error: ctx.error };
+  const { vendor } = ctx;
   const existing = await prisma!.flashSale.findUnique({ where: { id } });
   if (!existing || existing.vendorId !== vendor.id) {
     return { ok: false as const, error: "not found" };

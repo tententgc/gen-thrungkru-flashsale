@@ -11,10 +11,14 @@ export function FlashSaleCard({
   sale,
   vendor: vendorProp,
   product: productProp,
+  priority = false,
 }: {
   sale: FlashSale;
   vendor?: Vendor;
   product?: Product;
+  /** Set to true for the first card above the fold so Next/Image preloads it
+   *  and satisfies the LCP dev warning. */
+  priority?: boolean;
 }) {
   const vendor = vendorProp ?? VENDORS.find((x) => x.id === sale.vendorId);
   if (!vendor) return null;
@@ -46,6 +50,7 @@ export function FlashSaleCard({
             alt={product?.name ?? vendor.shopName}
             fill
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            priority={priority}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (

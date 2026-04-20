@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { listFlashSales } from "@/lib/data/flash-sales";
 import { listVendors } from "@/lib/data/vendors";
-import { getProductById } from "@/lib/data/products";
+import { listProductsByIds } from "@/lib/data/products";
 import { haversineMeters, MARKET_CENTER } from "@/lib/geo";
 import type { FlashSale } from "@/lib/types";
 
@@ -22,14 +22,21 @@ export async function GET(req: Request) {
   const status = statusParam
     ? (statusParam.toUpperCase() as FlashSale["status"])
     : undefined;
+
+  // Parallelise sales + vendor lookups; then batch all product ids into a
+  // single query (was N+1: one `getProductById` per item per sale).
   const [sales, vendors] = await Promise.all([
     listFlashSales({ status }),
     listVendors(),
   ]);
 
-  const enriched = await Promise.all(
-    sales.map(async (s) => {
-      const vendor = vendors.find((v) => v.id === s.vendorId);
+  const vendorMap = new Map(vendors.map((v) => [v.id, v]));
+  const productIds = sales.flatMap((s) => s.items.map((it) => it.productId));
+  const productMap = await listProductsByIds(productIds);
+
+  const enriched = sales
+    .map((s) => {
+      const vendor = vendorMap.get(s.vendorId);
       if (!vendor) return null;
       const distance = haversineMeters(origin, {
         lat: vendor.latitude,
@@ -47,20 +54,23 @@ export async function GET(req: Request) {
           category: vendor.category,
         },
         distance,
-        items: await Promise.all(
-          s.items.map(async (it) => ({
-            ...it,
-            product: await getProductById(it.productId),
-          })),
-        ),
+        items: s.items.map((it) => ({
+          ...it,
+          product: productMap.get(it.productId) ?? null,
+        })),
       };
-    }),
-  );
-
-  const filtered = enriched
+    })
     .filter((s): s is NonNullable<typeof s> => s !== null)
     .filter((s) => (near ? s.distance <= radius : true))
     .sort((a, b) => new Date(a.endAt).getTime() - new Date(b.endAt).getTime());
 
-  return NextResponse.json({ data: filtered, meta: { total: filtered.length } });
+  return NextResponse.json(
+    { data: enriched, meta: { total: enriched.length } },
+    {
+      headers: {
+        "Cache-Control":
+          "public, s-maxage=15, stale-while-revalidate=60",
+      },
+    },
+  );
 }

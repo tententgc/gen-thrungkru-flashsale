@@ -2,14 +2,21 @@ import { getForecast } from "@/lib/data/crowd";
 import { CrowdHeatmap } from "@/components/crowd/crowd-heatmap";
 import { CrowdLineChart } from "@/components/crowd/crowd-line-chart";
 import { TrendingIcon } from "@/components/icons";
+import { formatTimeTH } from "@/lib/utils";
 
 export const metadata = { title: "Insights สำหรับร้านค้า" };
 
 export default async function VendorInsightsPage() {
   const forecast = await getForecast(168);
-  const peakToday = Math.max(...forecast.slice(0, 24).map((p) => p.count));
+  const today = forecast.slice(0, 24);
+  const peakIdxToday = today.reduce(
+    (best, p, i) => (p.count > today[best].count ? i : best),
+    0,
+  );
+  const peakToday = today[peakIdxToday]?.count ?? 0;
+  const peakTimeToday = today[peakIdxToday]?.time;
   const avgToday = Math.round(
-    forecast.slice(0, 24).reduce((acc, p) => acc + p.count, 0) / 24,
+    today.reduce((acc, p) => acc + p.count, 0) / Math.max(today.length, 1),
   );
 
   return (
@@ -22,9 +29,19 @@ export default async function VendorInsightsPage() {
       </header>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <Kpi title="พีควันนี้" value={`${peakToday} คน`} caption="ประมาณ 18:30" />
+        <Kpi
+          title="พีควันนี้"
+          value={`${peakToday} คน`}
+          caption={
+            peakTimeToday ? `ประมาณ ${formatTimeTH(peakTimeToday)}` : "—"
+          }
+        />
         <Kpi title="ค่าเฉลี่ย/ชั่วโมง" value={`${avgToday} คน`} caption="ตลอด 24 ชม." />
-        <Kpi title="Conversion flash sale" value="12.8%" caption="+2.4% WoW" />
+        <Kpi
+          title="Conversion flash sale"
+          value="—"
+          caption="ยังไม่มีข้อมูล (ต้องเปิด tracking)"
+        />
       </section>
 
       <CrowdLineChart points={forecast.slice(0, 24)} />

@@ -1,10 +1,31 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rm -f .git/index.lock)",
-      "Bash(git add *)",
-      "Bash(git commit -m 'feat: real product + shop images replace emoji placeholders *)",
-      "Bash(git push *)"
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Read(**)",
+      "Bash(kill 60542)",
+      "Bash(xargs kill *)",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs -I{} kill -9 {})",
+      "Bash(pkill -9 -f \"next dev\")",
+      "Bash(pkill -9 -f \"next-server\")",
+      "Bash(PORT=3000 npm run dev)",
+      "Bash(echo \"started PID=$!\")",
+      "Read(//tmp/**)",
+      "Bash(SKIP_PRISMA=1 npm run dev)",
+      "Bash(echo \"pid=$!\")",
+      "Read(//private/tmp/**)",
+      "Bash(lsof -i:3000)",
+      "Bash(tee /tmp/devlog.txt)",
+      "Bash(pkill -9 -f \"npm run dev\")",
+      "Bash(awk '{print $2, $11, $12, $13}')",
+      "Bash(ps -p 47102 -o pid,pcpu,pmem,time)",
+      "Bash(SKIP_PRISMA=1 PORT=3000 node node_modules/.bin/next dev --turbopack)",
+      "Bash(claude mcp *)"
     ]
   }
 }

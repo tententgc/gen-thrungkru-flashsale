@@ -20,18 +20,34 @@ export async function GET(req: Request) {
   ]);
   const liveIds = new Set(active.map((fs) => fs.vendorId));
 
-  let shops = vendors.filter((v) =>
-    haversineMeters({ lat, lng }, { lat: v.latitude, lng: v.longitude }) <= radius,
-  );
-  if (category) shops = shops.filter((v) => v.category === category);
-  if (only === "flash-sale") shops = shops.filter((v) => liveIds.has(v.id));
+  // Compute distance once per vendor; reuse across filter/map.
+  const origin = { lat, lng };
+  const shops = vendors
+    .map((v) => ({
+      vendor: v,
+      distance: haversineMeters(origin, { lat: v.latitude, lng: v.longitude }),
+    }))
+    .filter(({ vendor, distance }) => {
+      if (distance > radius) return false;
+      if (category && vendor.category !== category) return false;
+      if (only === "flash-sale" && !liveIds.has(vendor.id)) return false;
+      return true;
+    });
 
-  return NextResponse.json({
-    data: shops.map((v) => ({
-      ...v,
-      hasActiveFlashSale: liveIds.has(v.id),
-      distance: haversineMeters({ lat, lng }, { lat: v.latitude, lng: v.longitude }),
-    })),
-    meta: { total: shops.length, radius, center: { lat, lng } },
-  });
+  return NextResponse.json(
+    {
+      data: shops.map(({ vendor, distance }) => ({
+        ...vendor,
+        hasActiveFlashSale: liveIds.has(vendor.id),
+        distance,
+      })),
+      meta: { total: shops.length, radius, center: origin },
+    },
+    {
+      headers: {
+        "Cache-Control":
+          "public, s-maxage=60, stale-while-revalidate=300",
+      },
+    },
+  );
 }

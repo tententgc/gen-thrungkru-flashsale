@@ -1,18 +1,14 @@
 import Link from "next/link";
 import { listFlashSalesForVendor } from "@/lib/data/flash-sales";
-import { getVendorById, getVendorByUserId } from "@/lib/data/vendors";
-import { getSessionUser } from "@/lib/auth/session";
+import { requireVendor } from "@/lib/auth/vendor";
 import { FlashSaleCard } from "@/components/flash-sale/flash-sale-card";
 import { PlusIcon } from "@/components/icons";
 
 export const metadata = { title: "Flash Sale ของร้าน" };
 
 export default async function VendorFlashSalesPage() {
-  const user = await getSessionUser();
-  const vendor = user
-    ? (await getVendorByUserId(user.id)) ?? (await getVendorById("v-01"))
-    : await getVendorById("v-01");
-  const sales = vendor ? await listFlashSalesForVendor(vendor.id) : [];
+  const vendor = await requireVendor("/vendor/flash-sales");
+  const sales = await listFlashSalesForVendor(vendor.id);
 
   return (
     <div className="space-y-6">

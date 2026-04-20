@@ -1,15 +1,10 @@
-import { getVendorById, getVendorByUserId } from "@/lib/data/vendors";
-import { getSessionUser } from "@/lib/auth/session";
+import { requireVendor } from "@/lib/auth/vendor";
 import { categoryMeta } from "@/lib/categories";
 
 export const metadata = { title: "ข้อมูลร้าน" };
 
 export default async function VendorProfilePage() {
-  const user = await getSessionUser();
-  const vendor = user
-    ? (await getVendorByUserId(user.id)) ?? (await getVendorById("v-01"))
-    : await getVendorById("v-01");
-  if (!vendor) return null;
+  const vendor = await requireVendor("/vendor/profile");
   const cat = categoryMeta(vendor.category);
 
   return (

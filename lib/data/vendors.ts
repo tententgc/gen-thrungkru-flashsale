@@ -1,7 +1,10 @@
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { ready } from "@/lib/env";
 import { VENDORS, vendorBySlug as mockBySlug, vendorById as mockById } from "@/lib/mock-data";
 import { VENDOR_IMAGES } from "@/lib/images";
+import { isUuid } from "@/lib/utils";
 import type { Vendor } from "@/lib/types";
 
 function prismaVendorToView(v: any): Vendor {
@@ -42,42 +45,65 @@ async function tryDb<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-export async function listVendors(): Promise<Vendor[]> {
-  const rows = await tryDb(
-    () =>
-      prisma!.vendor.findMany({
-        where: { isActive: true },
-        orderBy: { followerCount: "desc" },
-      }),
-    [] as any[],
-  );
-  if (rows.length > 0) return rows.map(prismaVendorToView);
-  return VENDORS;
-}
+// Vendor catalog changes rarely — cache for 5 minutes across requests,
+// deduplicate within a single render via React.cache().
+const fetchVendors = unstable_cache(
+  async (): Promise<Vendor[]> => {
+    const rows = await tryDb(
+      () =>
+        prisma!.vendor.findMany({
+          where: { isActive: true },
+          orderBy: { followerCount: "desc" },
+        }),
+      [] as any[],
+    );
+    if (rows.length > 0) return rows.map(prismaVendorToView);
+    return VENDORS;
+  },
+  ["vendors:list:active"],
+  { revalidate: 300, tags: ["vendors"] },
+);
 
-export async function getVendorBySlug(slug: string): Promise<Vendor | null> {
-  const v = await tryDb(
-    () => prisma!.vendor.findUnique({ where: { slug } }),
-    null,
-  );
-  if (v) return prismaVendorToView(v);
-  return mockBySlug(slug) ?? null;
-}
+export const listVendors = cache(fetchVendors);
 
-export async function getVendorById(id: string): Promise<Vendor | null> {
-  const v = await tryDb(
-    () => prisma!.vendor.findUnique({ where: { id } }),
-    null,
-  );
-  if (v) return prismaVendorToView(v);
-  return mockById(id) ?? null;
-}
+const fetchVendorBySlug = unstable_cache(
+  async (slug: string): Promise<Vendor | null> => {
+    const v = await tryDb(
+      () => prisma!.vendor.findUnique({ where: { slug } }),
+      null,
+    );
+    if (v) return prismaVendorToView(v);
+    return mockBySlug(slug) ?? null;
+  },
+  ["vendors:by-slug"],
+  { revalidate: 300, tags: ["vendors"] },
+);
 
-export async function getVendorByUserId(userId: string): Promise<Vendor | null> {
-  const v = await tryDb(
-    () => prisma!.vendor.findUnique({ where: { userId } }),
-    null,
-  );
-  if (v) return prismaVendorToView(v);
-  return null;
-}
+export const getVendorBySlug = cache(fetchVendorBySlug);
+
+const fetchVendorById = unstable_cache(
+  async (id: string): Promise<Vendor | null> => {
+    const v = isUuid(id)
+      ? await tryDb(() => prisma!.vendor.findUnique({ where: { id } }), null)
+      : null;
+    if (v) return prismaVendorToView(v);
+    return mockById(id) ?? null;
+  },
+  ["vendors:by-id"],
+  { revalidate: 300, tags: ["vendors"] },
+);
+
+export const getVendorById = cache(fetchVendorById);
+
+// Owner-scoped: skip unstable_cache (user-specific) but keep React.cache()
+// so a single render deduplicates repeated lookups.
+export const getVendorByUserId = cache(
+  async (userId: string): Promise<Vendor | null> => {
+    const v = await tryDb(
+      () => prisma!.vendor.findUnique({ where: { userId } }),
+      null,
+    );
+    if (v) return prismaVendorToView(v);
+    return null;
+  },
+);

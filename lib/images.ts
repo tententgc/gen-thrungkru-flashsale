@@ -27,7 +27,7 @@ export const VENDOR_IMAGES: Record<
     logo: DICEBEAR("tod-man"),
   },
   "cha-yen-moma": {
-    cover: UNSPLASH("1558857563-c0c6ee6ff8bb"), // thai tea glass
+    cover: UNSPLASH("1544145945-f90425340c7e"), // thai tea glass (prior id 404'd upstream)
     logo: DICEBEAR("cha-yen"),
   },
   "mango-sticky-rice": {
@@ -73,7 +73,7 @@ export const PRODUCT_IMAGES: Record<string, string> = {
   "p-02": UNSPLASH("1547592180-85f173990554", 600),    // เกาเหลาต้มยำ
   "p-03": UNSPLASH("1604382354936-07c5d9983bd3", 600), // ทอดมันปลา 5 ชิ้น
   "p-04": UNSPLASH("1625220194771-7ebdea0b70b9", 600), // ลูกชิ้นทอด
-  "p-05": UNSPLASH("1558857563-c0c6ee6ff8bb", 600),    // ชาไทยเย็น
+  "p-05": UNSPLASH("1544145945-f90425340c7e", 600),    // ชาไทยเย็น
   "p-06": UNSPLASH("1536256263959-770b48d82b0a", 600), // ชาเขียวมัทฉะ
   "p-07": UNSPLASH("1568158879083-c42860933ed7", 600), // ข้าวเหนียวมะม่วง
   "p-08": UNSPLASH("1559314809-0d155014e29e", 600),    // กะเพราหมูสับไข่ดาว

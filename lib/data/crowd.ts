@@ -1,55 +1,27 @@
-import { prisma } from "@/lib/prisma";
-import { ready, env } from "@/lib/env";
+import { cache } from "react";
 import { generateWeeklyForecast, bestTimesOnDate } from "@/lib/mock-data";
 import type { CrowdForecastPoint } from "@/lib/types";
 
-export async function getForecast(hours = 168): Promise<CrowdForecastPoint[]> {
-  if (ready.forecast) {
-    try {
-      const res = await fetch(
-        `${env.forecastServiceUrl}/forecast?hours=${hours}`,
-        {
-          headers: env.forecastServiceKey
-            ? { "X-API-Key": env.forecastServiceKey }
-            : {},
-          next: { revalidate: 900 },
-        },
-      );
-      if (res.ok) {
-        const body = await res.json();
-        const points = (body.predictions ?? []) as CrowdForecastPoint[];
-        if (points.length > 0) return points;
-      }
-    } catch {
-      // fall through
-    }
-  }
+// Crowd forecast is fully synthesised from lib/mock-data.generateWeeklyForecast
+// — a deterministic sinusoidal busyness curve shaped by the day of week.
+// Zero network, zero DB — keeps dev + prod snappy and unblocks boot even when
+// the upstream forecast service or Supabase are unreachable. To plug the real
+// LightGBM model back in, wrap this with a timed fetch + DB fallback; the
+// callers (getForecast, getBestTimes) don't need to change.
 
-  if (ready.db && prisma) {
-    try {
-      const rows = await prisma.crowdForecast.findMany({
-        where: { targetTime: { gte: new Date() } },
-        orderBy: { targetTime: "asc" },
-        take: hours,
-      });
-      if (rows.length > 0) {
-        return rows.map((r) => ({
-          time: r.targetTime.toISOString(),
-          count: r.predictedCount,
-          lower: r.confidenceLower,
-          upper: r.confidenceUpper,
-          level: r.busyLevel,
-        }));
-      }
-    } catch {
-      // DB unreachable — fall through to synthetic
-    }
-  }
+const MAX_HOURS = 168;
 
-  return generateWeeklyForecast().slice(0, hours);
-}
+const baseline = (): CrowdForecastPoint[] =>
+  generateWeeklyForecast().slice(0, MAX_HOURS);
 
-export async function getBestTimes(date: Date, n = 3) {
-  const forecast = await getForecast(72);
-  return bestTimesOnDate(forecast, date, n);
-}
+export const getForecast = cache(
+  async (hours = MAX_HOURS): Promise<CrowdForecastPoint[]> => {
+    const clamped = Math.min(Math.max(hours, 1), MAX_HOURS);
+    return baseline().slice(0, clamped);
+  },
+);
+
+export const getBestTimes = cache(async (date: Date, n = 3) => {
+  const series = baseline();
+  return bestTimesOnDate(series, date, n);
+});

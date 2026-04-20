@@ -1,18 +1,14 @@
 import Link from "next/link";
 import { listProductsForVendor } from "@/lib/data/products";
-import { getVendorById, getVendorByUserId } from "@/lib/data/vendors";
-import { getSessionUser } from "@/lib/auth/session";
+import { requireVendor } from "@/lib/auth/vendor";
 import { formatTHB } from "@/lib/utils";
 import { PlusIcon } from "@/components/icons";
 
 export const metadata = { title: "สินค้าของร้าน" };
 
 export default async function VendorProductsPage() {
-  const user = await getSessionUser();
-  const vendor = user
-    ? (await getVendorByUserId(user.id)) ?? (await getVendorById("v-01"))
-    : await getVendorById("v-01");
-  const products = vendor ? await listProductsForVendor(vendor.id) : [];
+  const vendor = await requireVendor("/vendor/products");
+  const products = await listProductsForVendor(vendor.id);
 
   return (
     <div className="space-y-6">

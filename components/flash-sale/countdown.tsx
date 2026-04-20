@@ -1,10 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-function diffMs(to: Date) {
-  return to.getTime() - Date.now();
-}
+import { useEffect, useRef, useState } from "react";
 
 function pad(n: number) {
   return n < 10 ? `0${n}` : `${n}`;
@@ -21,25 +17,36 @@ export function Countdown({
   onTick?: (msLeft: number) => void;
   compact?: boolean;
 }) {
-  const end = new Date(endAt);
-  const start = startAt ? new Date(startAt) : null;
-  const [msLeft, setMsLeft] = useState<number>(() => diffMs(end));
-  const [notStarted, setNotStarted] = useState<boolean>(() =>
-    start ? Date.now() < start.getTime() : false,
-  );
+  // Use numeric timestamps as effect deps so Date identity doesn't restart the
+  // interval each render.
+  const endMs = new Date(endAt).getTime();
+  const startMs = startAt ? new Date(startAt).getTime() : null;
+  const [mounted, setMounted] = useState(false);
+  const [msLeft, setMsLeft] = useState<number>(0);
+  const [notStarted, setNotStarted] = useState<boolean>(false);
+
+  // Keep the latest onTick in a ref — inline callbacks from the parent would
+  // otherwise tear down and rebuild the interval on every render.
+  const onTickRef = useRef(onTick);
+  useEffect(() => {
+    onTickRef.current = onTick;
+  }, [onTick]);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      const msToEnd = diffMs(end);
+    setMounted(true);
+    const tick = () => {
+      const msToEnd = endMs - Date.now();
       setMsLeft(msToEnd);
-      if (start) setNotStarted(Date.now() < start.getTime());
-      onTick?.(msToEnd);
-    }, 1000);
+      if (startMs != null) setNotStarted(Date.now() < startMs);
+      onTickRef.current?.(msToEnd);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [end, start, onTick]);
+  }, [endMs, startMs]);
 
-  const target = notStarted && start ? start : end;
-  const ms = Math.max(0, target.getTime() - Date.now());
+  const target = notStarted && startMs != null ? startMs : endMs;
+  const ms = mounted ? Math.max(0, target - Date.now()) : 0;
   const totalSec = Math.floor(ms / 1000);
   const hh = Math.floor(totalSec / 3600);
   const mm = Math.floor((totalSec % 3600) / 60);

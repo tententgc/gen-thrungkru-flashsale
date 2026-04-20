@@ -42,3 +42,13 @@ export function formatNumber(n: number): string {
 export function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
+
+// Real Prisma rows are UUIDs; mock fixtures use short ids like "fs-03" or
+// "v-001". Calling Prisma with a non-UUID id throws a noisy "Inconsistent
+// column data" error even when the caller is ready to fall back to mocks.
+// Guard at the boundary with this cheap check and skip the DB hit entirely.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(id: string): boolean {
+  return UUID_RE.test(id);
+}
