@@ -4,6 +4,7 @@
   "private": true,
   "description": "ThungKhru61 — Market PWA for ตลาดทุ่งครุ 61 with flash sales, interactive map, proximity alerts, and crowd forecasting.",
   "scripts": {
+    "predev": "node scripts/predev.mjs",
     "dev": "next dev --turbopack",
     "dev:webpack": "next dev",
     "build": "next build",
@@ -17,7 +18,7 @@
     "db:seed": "dotenv -e .env.local -e .env -- tsx prisma/seed.ts",
     "db:studio": "dotenv -e .env.local -e .env -- prisma studio",
     "db:reset": "dotenv -e .env.local -e .env -- prisma migrate reset --force",
-    "bootstrap": "npm install && npm run db:generate"
+    "postinstall": "prisma generate || echo '[postinstall] prisma generate skipped — run `npm run db:generate` after .env.local is configured.'"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

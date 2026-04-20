@@ -3,27 +3,101 @@
 > Market PWA — flash sales, interactive map, proximity alerts, and crowd forecasting for ตลาดทุ่งครุ 61.
 
 This repository implements the product vision in [`sprintplan.md`](./sprintplan.md). Backend services
-(Supabase / FastAPI / MLflow) described in the plan are represented with mocked data at this stage so
-the full experience can be demoed end-to-end without any external credentials.
+(Supabase / FastAPI / MLflow) described in the plan are mocked where credentials aren't wired so the
+full experience can be demoed end-to-end.
 
 ## Stack
 
-- **Next.js 15** (App Router) · TypeScript · React 19
+- **Next.js 16** (App Router, Turbopack) · TypeScript · React 19
 - **Tailwind CSS** · custom warm market palette · IBM Plex Sans Thai + JetBrains Mono
+- **Prisma 6 + Supabase Postgres** (PostGIS, pg_trgm, pgcrypto)
 - **Mock data layer** mirroring the Prisma schema (vendors, products, flash sales, crowd forecast)
-- **SVG-based map** and crowd heatmap (swap for Mapbox GL / Recharts in later sprints)
+- **SVG-based map** + Mapbox GL integration ready
 
-## Getting started
+## Quick start — `npm run dev`
 
 ```bash
-pnpm install   # or npm install
-pnpm dev       # starts http://localhost:3000
-pnpm build     # production build
-pnpm typecheck # tsc --noEmit
+# 1. Verify Node version (22 LTS recommended — see .nvmrc; minimum 20.9)
+node --version               # must print v20.9 or newer (v22 LTS recommended)
+
+# 2. Environment — copy the template and edit only if you need custom values
+cp .env.example .env.local   # then open .env.local and fill in any overrides
+
+# 3. Install dependencies (runs `prisma generate` automatically via postinstall)
+npm install
+
+# 4. Start the dev server — Turbopack + HMR on http://localhost:3000
+npm run dev
 ```
 
-Copy `.env.example` to `.env.local` if you want to override the demo config (all values are optional —
-the mock data layer is self-contained).
+### Switching Node versions (optional)
+
+Pick whichever tool you already have; none are required if `node --version` is already 20.9+.
+
+```bash
+# nvm (https://github.com/nvm-sh/nvm) — requires nvm.sh sourced in your shell
+#   If `nvm: command not found`, add this to ~/.zshrc or ~/.bashrc:
+#     export NVM_DIR="$HOME/.nvm"
+#     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm install && nvm use        # reads .nvmrc (22)
+
+# fnm (https://github.com/Schniz/fnm) — faster, zero-config
+fnm use --install-if-missing
+
+# volta (https://volta.sh)
+volta install node@22
+
+# Homebrew
+brew install node@22 && brew link --overwrite --force node@22
+```
+
+That's it. `npm run dev` automatically:
+
+- Kills any stale process holding port 3000 (no accidental fallback to 3001).
+- Clears `.next` cache when `next.config.*` or `package-lock.json` is newer (avoids stale-chunk stalls).
+- Warns if `.env.local` / `.env` is missing (app falls back to mock mode).
+- Launches `next dev --turbopack` — first route compile ~5–10s, subsequent edits hot-reload in <1s.
+
+### First run on a fresh machine
+
+```bash
+git clone <repo>
+cd gen-thrungkru-flashsale
+node --version                # must be v20.9+ (see "Switching Node versions" above if not)
+cp .env.example .env.local    # fill in Supabase / Mapbox / VAPID values
+npm install                   # also runs prisma generate
+npm run dev
+```
+
+Open http://localhost:3000.
+
+### Troubleshooting
+
+| Symptom                                     | Fix                                                      |
+| ------------------------------------------- | -------------------------------------------------------- |
+| `nm: error: use: No such file or directory` running `nvm use` | `nvm` is not sourced in this shell — zsh auto-corrects to Xcode's `nm`. Either source nvm (see "Switching Node versions") or use `fnm`/`volta`/`brew`. |
+| `prisma generate` failed during install     | Set `DATABASE_URL` in `.env.local`, then `npm run db:generate` |
+| Dev server hangs at "Compiling / ..."        | `rm -rf .next && npm run dev`                            |
+| Port 3000 kept by another process           | `npm run dev` auto-kills it; use `PORT=3001 npm run dev` to change port |
+| Missing types from Prisma                   | `npm run db:generate`                                    |
+
+## Available scripts
+
+| Command                   | Description                                                   |
+| ------------------------- | ------------------------------------------------------------- |
+| `npm run dev`             | Next.js dev server (Turbopack + HMR) on :3000                 |
+| `npm run dev:webpack`     | Same as dev but with webpack (fallback if Turbopack misbehaves) |
+| `npm run build`           | Production build                                              |
+| `npm run start`           | Serve the production build                                    |
+| `npm run lint`            | ESLint                                                        |
+| `npm run typecheck`       | `tsc --noEmit`                                                |
+| `npm run test:e2e`        | Playwright E2E                                                |
+| `npm run db:generate`     | Regenerate Prisma client after `schema.prisma` changes        |
+| `npm run db:migrate`      | Apply pending migrations (production-safe)                    |
+| `npm run db:migrate:dev`  | Create + apply new migration in dev                           |
+| `npm run db:seed`         | Seed the database from `prisma/seed.ts`                       |
+| `npm run db:studio`       | Open Prisma Studio                                            |
+| `npm run db:reset`        | Drop + re-migrate + seed (destructive, local only)            |
 
 ## Routes
 
