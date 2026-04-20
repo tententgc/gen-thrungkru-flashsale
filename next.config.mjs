@@ -40,6 +40,13 @@ const nextConfig = {
       "clsx",
       "tailwind-merge",
     ],
+    // Client-side router cache: reuse already-rendered RSC payloads on
+    // back/forward + in-app navigation instead of refetching the layout
+    // (which runs getSessionUser + getUnreadNotificationCount) every time.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
 };
 

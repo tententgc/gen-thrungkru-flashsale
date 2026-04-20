@@ -15,6 +15,17 @@ export async function proxy(req: NextRequest) {
 
   if (!ready.supabase) return res;
 
+  // Fast path: no Supabase auth cookie at all — skip the client init and
+  // redirect straight to login. Saves a full Supabase client bootstrap on
+  // every unauthenticated visit to a protected route.
+  const hasSbCookie = req.cookies.getAll().some((c) => c.name.startsWith("sb-"));
+  if (!hasSbCookie) {
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("next", path);
+    return NextResponse.redirect(loginUrl);
+  }
+
   const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
     cookies: {
       getAll() {
@@ -28,6 +39,10 @@ export async function proxy(req: NextRequest) {
     },
   });
 
+  // Verify the session against Supabase auth server. getSession() reads
+  // cookies directly without verification (Supabase warns about this), so we
+  // stick with getUser() even though it costs one network round trip — the
+  // cookie short-circuit above already skips this for unauthenticated users.
   let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
   try {
     const { data } = await supabase.auth.getUser();
